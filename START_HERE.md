@@ -1,6 +1,15 @@
 # Welcome to Simple Claude Conductor!
 
-This tool helps you build software projects using Claude AI. Fill out this form, save it, then run **INITIALIZE_MY_PROJECT.bat** to get started.
+This tool helps you build software projects using Claude AI, even if you have no coding experience!
+
+## What To Do
+
+1. **Fill out this form below** (replace the `_____` blanks with your answers)
+2. **Save this file** (press Ctrl+S or File > Save)
+3. **Double-click INITIALIZE_MY_PROJECT.bat** to set everything up
+4. **Double-click RUN_PROJECT.bat** to start working with Claude
+
+That's it! Let's get started.
 
 ---
 
@@ -25,15 +34,11 @@ If you have a developer API key from console.anthropic.com, enter it below.
 
 **Project Name:** (Give your project a short name)
 
-    PROJECT_NAME: My Project
+    PROJECT_NAME: _____
 
 **Describe What You Want:** (Be as detailed as possible - the more detail, the better!)
 
-    PROJECT_DESCRIPTION: _______________________________________________
-    ___________________________________________________________________
-    ___________________________________________________________________
-    ___________________________________________________________________
-    ___________________________________________________________________
+    PROJECT_DESCRIPTION: _____
 
 **Example descriptions:**
 - "Build a simple website with a contact form that sends emails"
@@ -50,7 +55,7 @@ These settings control how Claude builds your project. The defaults work great f
 - YES = Claude will ask clarifying questions first (Recommended for complex projects)
 - NO = Claude will make reasonable assumptions and start immediately
 
-    ASK_QUESTIONS: YES
+    ASK_QUESTIONS: NO
 
 **AI Model to Use:**
 - SONNET = Balanced speed and quality (Recommended)
@@ -80,7 +85,24 @@ These are for people who know about testing and code quality.
 
 ---
 
-## Step 5: You're Ready!
+## Step 5: Do You Have Sample Files? (Optional)
+
+If you have **example files, documentation, or samples** you want Claude to reference, put them in the **File_References_For_Your_Project** folder.
+
+**Examples of helpful files:**
+- Sample documents or templates to mimic
+- API documentation
+- Screenshots of desired layouts
+- Example code
+- Data files to process
+
+**Where to put them:** Open the `File_References_For_Your_Project` folder and drop your files there.
+
+**Don't have any reference files?** No problem! Just skip this step. Claude will work from your description alone.
+
+---
+
+## Step 6: You're Ready!
 
 1. **Save this file** (Ctrl+S or File > Save)
 

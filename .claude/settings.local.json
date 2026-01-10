@@ -1,58 +1,112 @@
 {
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit(docs/**)",
+      "Edit(src/**)",
+      "Edit(output/**)",
+      "Edit(STATUS.md)",
+      "Edit(Questions_For_You.md)",
+      "Write(docs/**)",
+      "Write(src/**)",
+      "Write(output/**)",
+      "Write(tests/**)",
+      "Write(STATUS.md)",
+      "Bash(python *)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(pytest*)",
+      "Bash(mkdir *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(del /s *)",
+      "Bash(format *)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
   "hooks": {
     "UserPromptSubmit": [
       {
-        "command": "bash .claude/hooks/mcp-reminder.sh",
-        "description": "MCP-First reminder for file discovery"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/mcp-reminder.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "tool": "Bash",
-        "command": "bash .claude/hooks/branch-protection.sh",
-        "description": "Prevent dangerous git operations"
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/branch-protection.sh"
+          }
+        ]
       },
       {
-        "tool": "Write",
-        "command": "bash .claude/hooks/file-guard.sh",
-        "description": "Warn on ad-hoc planning file creation"
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/file-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "tool": "Grep",
-        "command": "bash .claude/hooks/findings-reminder.sh",
-        "description": "2-Action Rule reminder"
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/findings-reminder.sh"
+          }
+        ]
       },
       {
-        "tool": "Glob",
-        "command": "bash .claude/hooks/findings-reminder.sh",
-        "description": "2-Action Rule reminder"
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/findings-reminder.sh"
+          }
+        ]
       },
       {
-        "tool": "Read",
-        "command": "bash .claude/hooks/findings-reminder.sh",
-        "description": "2-Action Rule reminder"
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/findings-reminder.sh"
+          }
+        ]
       },
       {
-        "tool": "WebSearch",
-        "command": "bash .claude/hooks/findings-reminder.sh",
-        "description": "2-Action Rule reminder"
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/quality-gates.sh"
+          }
+        ]
       },
       {
-        "tool": "WebFetch",
-        "command": "bash .claude/hooks/findings-reminder.sh",
-        "description": "2-Action Rule reminder"
-      },
-      {
-        "tool": "Edit",
-        "command": "bash .claude/hooks/quality-gates.sh",
-        "description": "Quality gates reminder for code changes"
-      },
-      {
-        "tool": "Write",
-        "command": "bash .claude/hooks/quality-gates.sh",
-        "description": "Quality gates reminder for code changes"
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/quality-gates.sh"
+          }
+        ]
       }
     ]
   }

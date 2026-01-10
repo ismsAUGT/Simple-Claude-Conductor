@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+title Simple Claude Conductor - Setup
+
+echo.
 echo ========================================
 echo   Simple Claude Conductor - Setup
 echo ========================================
@@ -10,6 +13,7 @@ echo.
 if not exist "START_HERE.md" (
     echo ERROR: START_HERE.md not found!
     echo Please make sure you're running this from the project folder.
+    echo.
     pause
     exit /b 1
 )
@@ -28,7 +32,7 @@ set "RUN_TESTS=NO"
 set "TYPECHECK=NO"
 set "LINT=NO"
 
-:: Parse START_HERE.md
+:: Parse START_HERE.md - simple line-by-line parsing
 for /f "usebackq tokens=1,* delims=:" %%a in ("START_HERE.md") do (
     set "key=%%a"
     set "value=%%b"
@@ -41,92 +45,50 @@ for /f "usebackq tokens=1,* delims=:" %%a in ("START_HERE.md") do (
         for /f "tokens=* delims= " %%c in ("!value!") do set "value=%%c"
     )
 
-    :: Match known keys
-    if /i "!key!"=="USE_SUBSCRIPTION" set "USE_SUBSCRIPTION=!value!"
-    if /i "!key!"=="API_KEY" set "API_KEY=!value!"
-    if /i "!key!"=="PROJECT_NAME" set "PROJECT_NAME=!value!"
-    if /i "!key!"=="ASK_QUESTIONS" set "ASK_QUESTIONS=!value!"
-    if /i "!key!"=="MODEL" set "MODEL=!value!"
-    if /i "!key!"=="RUN_TESTS" set "RUN_TESTS=!value!"
-    if /i "!key!"=="TYPECHECK" set "TYPECHECK=!value!"
-    if /i "!key!"=="LINT" set "LINT=!value!"
-)
-
-:: Extract PROJECT_DESCRIPTION (multi-line, needs special handling)
-set "in_description=0"
-set "PROJECT_DESCRIPTION="
-for /f "usebackq delims=" %%a in ("START_HERE.md") do (
-    set "line=%%a"
-
-    :: Check if we hit the start of description
-    echo !line! | findstr /C:"PROJECT_DESCRIPTION:" >nul
-    if !errorlevel! equ 0 (
-        set "in_description=1"
-        :: Get the part after PROJECT_DESCRIPTION:
-        for /f "tokens=1,* delims=:" %%b in ("!line!") do (
-            set "desc_part=%%c"
-            if defined desc_part (
-                for /f "tokens=* delims= " %%d in ("!desc_part!") do (
-                    if not "%%d"=="_____" if not "%%d"=="_______________________________________________" (
-                        set "PROJECT_DESCRIPTION=%%d"
-                    )
-                )
-            )
-        )
-    ) else if !in_description! equ 1 (
-        :: Check if we hit the next section
-        echo !line! | findstr /C:"Example descriptions:" >nul
-        if !errorlevel! equ 0 (
-            set "in_description=0"
-        ) else (
-            :: Add to description if it's not just underscores
-            set "trimmed=!line:_=!"
-            if defined trimmed (
-                for /f "tokens=* delims= " %%d in ("!trimmed!") do (
-                    if not "%%d"=="" (
-                        if defined PROJECT_DESCRIPTION (
-                            set "PROJECT_DESCRIPTION=!PROJECT_DESCRIPTION! !line!"
-                        ) else (
-                            set "PROJECT_DESCRIPTION=!line!"
-                        )
-                    )
-                )
-            )
-        )
-    )
+    :: Match known keys (case insensitive)
+    if /i "!key!"=="USE_SUBSCRIPTION" if defined value set "USE_SUBSCRIPTION=!value!"
+    if /i "!key!"=="API_KEY" if defined value set "API_KEY=!value!"
+    if /i "!key!"=="PROJECT_NAME" if defined value set "PROJECT_NAME=!value!"
+    if /i "!key!"=="ASK_QUESTIONS" if defined value set "ASK_QUESTIONS=!value!"
+    if /i "!key!"=="MODEL" if defined value set "MODEL=!value!"
+    if /i "!key!"=="RUN_TESTS" if defined value set "RUN_TESTS=!value!"
+    if /i "!key!"=="TYPECHECK" if defined value set "TYPECHECK=!value!"
+    if /i "!key!"=="LINT" if defined value set "LINT=!value!"
 )
 
 :: Display parsed settings
 echo ----------------------------------------
-echo   Your Settings:
+echo   Your Settings
 echo ----------------------------------------
+echo.
 echo   Project Name: %PROJECT_NAME%
 echo   Use Subscription: %USE_SUBSCRIPTION%
-if /i "%USE_SUBSCRIPTION%"=="NO" echo   API Key: %API_KEY:~0,10%...
 echo   Ask Questions: %ASK_QUESTIONS%
 echo   Model: %MODEL%
 echo   Run Tests: %RUN_TESTS%
 echo   Type Check: %TYPECHECK%
 echo   Lint: %LINT%
+echo.
 echo ----------------------------------------
 echo.
 
 :: Confirm before proceeding
 echo Does this look correct?
-set /p confirm="Press Enter to continue, or type 'no' to cancel: "
-if /i "%confirm%"=="no" (
+echo.
+choice /c YN /m "Continue with setup (Y/N)"
+if errorlevel 2 (
     echo.
     echo Setup cancelled. Please edit START_HERE.md and try again.
+    echo.
     pause
     exit /b 0
 )
 
 echo.
-echo Setting up your project...
+echo ========================================
+echo   Setting Up Your Project
+echo ========================================
 echo.
-
-:: Update project.yaml
-echo Updating configuration...
 
 :: Convert model to lowercase for yaml
 set "MODEL_LOWER=sonnet"
@@ -146,228 +108,225 @@ if /i "%TYPECHECK%"=="YES" set "TYPE_BOOL=true"
 set "LINT_BOOL=false"
 if /i "%LINT%"=="YES" set "LINT_BOOL=true"
 
-:: Create updated project.yaml
-(
-echo # Claude Project Executor Configuration
-echo # Generated by INITIALIZE_MY_PROJECT.bat
-echo.
-echo version: "1.0"
-echo.
-echo project:
-echo   name: "%PROJECT_NAME%"
-echo   description: "A project using Simple Claude Conductor"
-echo.
-echo execution:
-echo   default_model: "%MODEL_LOWER%"
-echo   bypass_permissions: false
-echo   interrupt_for_questions: %ASK_Q_BOOL%
-echo   max_auto_phases: 5
-echo   generate_summary: true
-echo   test_first: false
-echo.
-echo quality_gates:
-echo   run_tests: %TESTS_BOOL%
-echo   typecheck: %TYPE_BOOL%
-echo   lint: %LINT_BOOL%
-echo.
-echo models:
-echo   low: "haiku"
-echo   medium: "sonnet"
-echo   high: "opus"
-echo.
-echo paths:
-echo   planning_dir: "docs/planning"
-echo   reports_dir: "docs/planning/reports"
-echo   archive_dir: "docs/planning/archive"
-echo.
-echo hooks:
-echo   mcp_reminder: true
-echo   branch_protection: true
-echo   file_guard: true
-echo   findings_reminder: true
-) > project.yaml
+:: Update project.yaml
+echo [1/5] Updating configuration...
 
-echo   [OK] Configuration updated
-
-:: Initialize planning files
-echo Initializing planning files...
-
-:: Create task-plan.md with their project description
-(
-echo # Task: %PROJECT_NAME%
-echo.
-echo **Created**: %date%
-echo **Status**: Not Started
-echo.
-echo ## Goal
-echo %PROJECT_DESCRIPTION%
-echo.
-echo ## Success Criteria
-echo - [ ] [To be defined by Claude based on your description]
-echo.
-echo ## Phases
-echo [Claude will generate phases based on your description]
-echo.
-echo ## Risks
-echo ^| Risk ^| Likelihood ^| Impact ^| Mitigation ^|
-echo ^|------|------------|--------|------------|
-echo ^| [To be identified] ^| - ^| - ^| - ^|
-echo.
-echo ## Decisions Log
-echo ^| # ^| Decision ^| Rationale ^| Date ^|
-echo ^|---|----------|-----------|------|
-echo.
-echo ## Errors ^& Blockers
-echo ^| # ^| Error ^| Attempts ^| Resolution ^| Status ^|
-echo ^|---|-------|----------|------------|--------|
-echo.
-echo ## Assumptions
-echo - [To be documented during planning]
-) > "docs\planning\task-plan.md"
-
-echo   [OK] Planning files initialized
-
-:: Create STATUS.md
-(
-echo # Project Status: %PROJECT_NAME%
-echo.
-echo **Last Updated**: %date%
-echo **Current State**: Not Started
-echo.
-echo ## Quick Status
-echo.
-echo ^| Item ^| Status ^|
-echo ^|------|--------|
-echo ^| Project Initialized ^| Yes ^|
-echo ^| Plan Generated ^| No ^|
-echo ^| Questions Answered ^| N/A ^|
-echo ^| Execution Started ^| No ^|
-echo ^| Phases Completed ^| 0 / 0 ^|
-echo.
-echo ## What's Next
-echo.
-echo Run **RUN_PROJECT.bat** to start Claude and begin building your project.
-echo.
-echo ## Progress Summary
-echo.
-echo [Progress will appear here as Claude works on your project]
-echo.
-echo ## Quick Links
-echo.
-echo - [Full Plan](docs/planning/task-plan.md^)
-echo - [Research Findings](docs/planning/findings.md^)
-echo - [Detailed Progress](docs/planning/progress.md^)
-) > "STATUS.md"
-
-echo   [OK] Status file created
-
-:: Create Questions_For_You.md
-(
-echo # Questions For You
-echo.
-echo **Status**: No questions yet
-echo.
-echo ---
-echo.
-echo When Claude has questions about your project, they will appear below.
-echo.
-echo **How to answer:**
-echo 1. Read each question
-echo 2. Type your answer below the question
-echo 3. Save this file
-echo 4. Go back to the terminal and press Enter to continue
-echo.
-echo ---
-echo.
-echo ## Questions
-echo.
-echo [No questions yet - Claude will add questions here when needed]
-echo.
-echo ---
-echo.
-echo *Don't want to answer? Just press Enter in the terminal and Claude will make reasonable assumptions.*
-) > "Questions_For_You.md"
-
-echo   [OK] Questions file created
-
-:: Handle authentication
-echo.
-echo ----------------------------------------
-echo   Authentication Setup
-echo ----------------------------------------
-echo.
-
-if /i "%USE_SUBSCRIPTION%"=="YES" (
-    echo You chose to use your Claude subscription.
+> project.yaml (
+    echo # Simple Claude Conductor Configuration
+    echo # Generated by INITIALIZE_MY_PROJECT.bat
     echo.
-    echo A browser window will open for you to log in.
-    echo After logging in, return to this window.
+    echo version: "1.0"
     echo.
-    pause
-
+    echo project:
+    echo   name: "%PROJECT_NAME%"
+    echo   description: "A project using Simple Claude Conductor"
     echo.
-    echo Opening Claude login...
-    claude login
-
-    if !errorlevel! neq 0 (
-        echo.
-        echo WARNING: Login may have failed. You can try again later by running:
-        echo   claude login
-        echo.
-    ) else (
-        echo.
-        echo   [OK] Login successful!
-    )
-) else (
-    if defined API_KEY (
-        if not "%API_KEY%"=="_____" (
-            echo Setting up API key...
-            setx ANTHROPIC_API_KEY "%API_KEY%" >nul 2>&1
-            set "ANTHROPIC_API_KEY=%API_KEY%"
-            echo   [OK] API key configured
-            echo.
-            echo NOTE: You may need to restart your terminal for the API key to take effect.
-        ) else (
-            echo WARNING: No API key provided!
-            echo Please edit START_HERE.md and add your API key, then run this again.
-        )
-    ) else (
-        echo WARNING: No API key provided!
-        echo Please edit START_HERE.md and add your API key, then run this again.
-    )
+    echo execution:
+    echo   default_model: "%MODEL_LOWER%"
+    echo   bypass_permissions: true
+    echo   interrupt_for_questions: %ASK_Q_BOOL%
+    echo   max_auto_phases: 10
+    echo   generate_summary: true
+    echo   test_first: false
+    echo.
+    echo # Safety gates - prevent runaway execution
+    echo safety:
+    echo   max_files_per_phase: 20
+    echo   max_iterations_per_task: 5
+    echo   require_checkpoint_every: 3
+    echo   stop_on_repeated_errors: 3
+    echo   max_total_files: 100
+    echo.
+    echo quality_gates:
+    echo   run_tests: %TESTS_BOOL%
+    echo   typecheck: %TYPE_BOOL%
+    echo   lint: %LINT_BOOL%
+    echo.
+    echo models:
+    echo   low: "haiku"
+    echo   medium: "sonnet"
+    echo   high: "opus"
+    echo.
+    echo paths:
+    echo   planning_dir: "docs/planning"
+    echo   reports_dir: "docs/planning/reports"
+    echo   archive_dir: "docs/planning/archive"
+    echo.
+    echo hooks:
+    echo   mcp_reminder: true
+    echo   branch_protection: true
+    echo   file_guard: true
+    echo   findings_reminder: true
 )
+echo       Done!
 
-:: Test Claude installation
-echo.
-echo Checking Claude installation...
+:: Update STATUS.md
+echo [2/5] Creating status file...
+
+> STATUS.md (
+    echo # Project Status: %PROJECT_NAME%
+    echo.
+    echo **Last Updated**: %date%
+    echo.
+    echo ---
+    echo.
+    echo ## 👉 WHAT TO DO NEXT
+    echo.
+    echo **Setup Complete!** Your project is initialized and ready.
+    echo.
+    echo **Your Next Step:**
+    echo.
+    echo 1. ^(Optional^) Add reference files to `File_References_For_Your_Project\` folder
+    echo    - Sample files, docs, screenshots, or examples
+    echo    - Skip this if you don't have reference materials
+    echo.
+    echo 2. Double-click `RUN_PROJECT.bat` to start Claude
+    echo.
+    echo 3. When Claude starts, type: **"Generate a plan"**
+    echo.
+    echo ---
+    echo.
+    echo ## Quick Status
+    echo.
+    echo ^| Item ^| Status ^|
+    echo ^|------^|--------^|
+    echo ^| Project Initialized ^| Yes ✓ ^|
+    echo ^| Claude Installed ^| Yes ✓ ^|
+    echo ^| Ready to Start ^| Yes ✓ ^|
+    echo.
+    echo ---
+    echo.
+    echo ## Project Workflow
+    echo.
+    echo Here's what happens when you run the project:
+    echo.
+    echo 1. You run `RUN_PROJECT.bat`
+    echo 2. Claude starts in the terminal
+    echo 3. You say "Generate a plan" - Claude creates a plan
+    echo 4. You say "Execute the plan" - Claude builds your project
+    echo 5. Check `output\` folder for generated files
+    echo 6. Check this file ^(STATUS.md^) for progress updates
+    echo.
+    echo ---
+    echo.
+    echo ## Progress Log
+    echo.
+    echo Claude will update this section as work progresses.
+    echo Check back here anytime to see what's been completed!
+)
+echo       Done!
+
+:: Update Questions file
+echo [3/5] Creating questions file...
+
+> Questions_For_You.md (
+    echo # Questions For You
+    echo.
+    echo **Status**: No questions yet
+    echo.
+    echo ---
+    echo.
+    echo When Claude has questions about your project, they will appear below.
+    echo.
+    echo How to answer:
+    echo 1. Read each question
+    echo 2. Type your answer below the question
+    echo 3. Save this file
+    echo 4. Go back to the terminal and press Enter to continue
+    echo.
+    echo ---
+    echo.
+    echo ## Questions
+    echo.
+    echo No questions yet - Claude will add questions here when needed.
+    echo.
+    echo ---
+    echo.
+    echo Do not want to answer? Just press Enter in the terminal and Claude will make reasonable assumptions.
+)
+echo       Done!
+
+:: Check Claude installation
+echo [4/5] Checking Claude installation...
+
 where claude >nul 2>&1
 if %errorlevel% neq 0 (
     echo.
-    echo WARNING: Claude CLI not found!
+    echo ========================================
+    echo   WARNING: Claude CLI Not Found
+    echo ========================================
     echo.
-    echo Please install it first:
-    echo   npm install -g @anthropic-ai/claude-code
+    echo Claude Code CLI is not installed on this computer.
     echo.
-    echo Then run this setup again.
-    pause
-    exit /b 1
+    echo To install it:
+    echo   1. Install Node.js from https://nodejs.org/
+    echo   2. Open a new command prompt
+    echo   3. Run: npm install -g @anthropic-ai/claude-code
+    echo.
+    echo After installing, run RUN_PROJECT.bat to start.
+    echo.
+    goto :success
 )
-echo   [OK] Claude CLI is installed
 
-:: Done!
+echo       Claude CLI found!
+
+:: Trust this directory so users don't get prompted
+echo.
+echo [5/5] Configuring trust settings...
+claude config add trustedDirectories "%CD%" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo       Directory trusted - no prompts when starting!
+) else (
+    echo       Note: Could not auto-trust directory.
+    echo       You may see a trust prompt when running Claude.
+)
+
+:: Handle authentication for subscription users
+if /i "%USE_SUBSCRIPTION%"=="YES" (
+    echo.
+    echo You chose to use your Claude subscription.
+    echo.
+    choice /c YN /m "Do you need to log in to Claude (Y/N)"
+    if errorlevel 2 (
+        echo       Skipping login - assuming already logged in.
+    ) else (
+        echo.
+        echo Opening Claude login...
+        echo A browser window should open. Sign in and return here.
+        echo.
+        call claude login
+        echo.
+        echo If login was successful, you are ready to go!
+    )
+)
+
+:success
+echo.
 echo.
 echo ========================================
-echo   Setup Complete!
+echo        SETUP COMPLETE!
 echo ========================================
 echo.
 echo Your project "%PROJECT_NAME%" is ready!
 echo.
-echo NEXT STEPS:
-echo   1. Run RUN_PROJECT.bat to start Claude
-echo   2. Claude will create a plan based on your description
-echo   3. Answer any questions in Questions_For_You.md
-echo   4. Watch Claude build your project!
+echo ========================================
+echo   OPTIONAL: Add Reference Files
+echo ========================================
 echo.
-echo Check STATUS.md anytime to see progress.
+echo Do you have sample files, docs, or examples?
+echo Put them in: File_References_For_Your_Project\
 echo.
-pause
+echo (Skip this if you don't have reference files)
+echo.
+echo ========================================
+echo   NEXT STEP: Double-click RUN_PROJECT.bat
+echo ========================================
+echo.
+echo Or type RUN_PROJECT.bat here and press Enter.
+echo.
+echo When Claude starts, type: Generate a plan
+echo.
+echo ========================================
+echo.
+echo Press any key to close this window...
+pause >nul
