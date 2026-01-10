@@ -1,4 +1,4 @@
-# Claude Project Executor
+# Simple Claude Conductor
 
 A reusable project template that transforms Claude into an intelligent project execution engine. Describe what you want to build, and Claude generates a plan, asks clarifying questions, executes phases with optimal model selection, and produces an executive summary.
 
@@ -11,7 +11,34 @@ A reusable project template that transforms Claude into an intelligent project e
 - **Safety Hooks** - Branch protection, file organization guards, research reminders
 - **Executive Summaries** - Automated reports on completion
 
-## Prerequisites
+---
+
+## Quick Start (Easy Way - Windows)
+
+**No coding experience needed!**
+
+1. **Download this project** (click "Code" → "Download ZIP" on GitHub, then unzip)
+
+2. **Open `START_HERE.md`** and fill in:
+   - Whether you have a Claude subscription or API key
+   - Your project name
+   - What you want to build (describe it in detail!)
+
+3. **Double-click `INITIALIZE_MY_PROJECT.bat`**
+   - This sets everything up for you
+   - If using a subscription, a browser will open to log you in
+
+4. **Double-click `RUN_PROJECT.bat`**
+   - Claude will start
+   - Type "Generate a plan" to begin!
+
+5. **Check your progress anytime** in `STATUS.md`
+
+That's it! Claude will build your project step by step.
+
+---
+
+## Prerequisites (Technical Setup)
 
 ### 1. Install Claude Code CLI
 
@@ -218,6 +245,12 @@ execution:
   interrupt_for_questions: true      # Ask before executing
   max_auto_phases: 5                 # Max phases without pause
   generate_summary: true             # Auto-generate summary
+  test_first: false                  # TDD mode (write tests first)
+
+quality_gates:
+  run_tests: false                   # Run tests before phase complete
+  typecheck: false                   # Run type checker
+  lint: false                        # Run linter
 
 models:
   low: "haiku"                       # Simple tasks
@@ -263,6 +296,72 @@ models:
   medium: "haiku"
   high: "sonnet"
 ```
+
+**Quality-Focused (TDD + Gates)**
+```yaml
+execution:
+  test_first: true
+quality_gates:
+  run_tests: true
+  typecheck: true
+  lint: true
+```
+
+## Quality Gates
+
+Quality gates are optional validation steps that run before marking a phase complete.
+
+### Supported Checks
+
+| Check | Auto-detects |
+|-------|--------------|
+| **Tests** | npm test, pytest, go test, cargo test, mvn test |
+| **Typecheck** | tsc, mypy, pyright, go build, cargo check |
+| **Lint** | eslint, ruff, flake8, golangci-lint, cargo clippy |
+
+### Configuration
+
+```yaml
+quality_gates:
+  run_tests: true    # Run project tests
+  typecheck: true    # Run type checking
+  lint: false        # Run linter (optional)
+```
+
+### How It Works
+
+1. Claude completes phase implementation
+2. Enabled quality gates run automatically
+3. If any gate fails, Claude fixes the issues
+4. Phase only marked complete when all gates pass
+
+## Test-First Development (TDD)
+
+Enable test-driven development for implementation phases.
+
+### Configuration
+
+```yaml
+execution:
+  test_first: true
+
+quality_gates:
+  run_tests: true    # Required for TDD
+```
+
+### TDD Flow
+
+When enabled, implementation phases follow **RED → GREEN → REFACTOR**:
+
+1. **RED**: Write failing tests that define expected behavior
+2. **GREEN**: Write minimal code to make tests pass
+3. **REFACTOR**: Clean up while keeping tests green
+
+### When TDD Applies
+
+- Implementation phases (keywords: implement, build, create)
+- Medium and High complexity phases
+- Skips documentation, config, and research phases
 
 ## Key Commands
 

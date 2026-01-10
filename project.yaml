@@ -30,6 +30,26 @@ execution:
   # Generate executive summary after all phases complete
   generate_summary: true
 
+  # Test-first development mode (optional TDD)
+  # When enabled, implementation phases generate tests before code
+  test_first: false
+
+quality_gates:
+  # Run before marking a phase as complete
+  # Set to false to disable, or specify custom command
+
+  # Run project tests (auto-detects: npm test, pytest, go test, etc.)
+  run_tests: false
+
+  # Run type checking (auto-detects: tsc, mypy, etc.)
+  typecheck: false
+
+  # Run linter (auto-detects: eslint, ruff, golint, etc.)
+  lint: false
+
+  # Custom validation command (runs if specified)
+  # custom: "npm run validate"
+
 models:
   # Model mapping for complexity levels
   # These can be overridden per-phase in task-plan.md

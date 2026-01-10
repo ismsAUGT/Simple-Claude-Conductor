@@ -160,6 +160,143 @@ Main execution orchestrator. Reads `task-plan.md`, processes phases sequentially
 ### generate-summary.sh
 Post-execution summary generator. Aggregates progress, extracts lessons, produces final report.
 
+### run-quality-gates.sh
+Auto-detects project type and runs quality checks. Supports:
+- **Tests**: npm test, pytest, go test, cargo test, mvn test
+- **Typecheck**: tsc, mypy, pyright, go build, cargo check
+- **Lint**: eslint, ruff, flake8, golangci-lint, cargo clippy
+
+Usage:
+```bash
+./run-quality-gates.sh tests      # Run tests only
+./run-quality-gates.sh typecheck  # Run type checking only
+./run-quality-gates.sh lint       # Run linter only
+./run-quality-gates.sh all        # Run all checks
+./run-quality-gates.sh detect     # Show detected project type
+```
+
+## Quality Gates
+
+Quality gates are optional validation steps that run before marking a phase complete.
+
+### Configuration (project.yaml)
+
+```yaml
+quality_gates:
+  run_tests: true    # Auto-detect and run tests
+  typecheck: true    # Auto-detect and run type checker
+  lint: false        # Auto-detect and run linter
+```
+
+### When Quality Gates Run
+
+1. After completing implementation work in a phase
+2. Before marking the phase as "Complete" in task-plan.md
+3. If any gate fails, the phase remains "In Progress"
+
+### Gate Execution Flow
+
+```
+Phase implementation complete
+        │
+        ▼
+┌─────────────────┐
+│ Run Tests       │──▶ FAIL ──▶ Fix issues, retry
+└────────┬────────┘
+         │ PASS
+         ▼
+┌─────────────────┐
+│ Run Typecheck   │──▶ FAIL ──▶ Fix issues, retry
+└────────┬────────┘
+         │ PASS
+         ▼
+┌─────────────────┐
+│ Run Lint        │──▶ FAIL ──▶ Fix issues, retry
+└────────┬────────┘
+         │ PASS
+         ▼
+   Mark phase complete
+```
+
+### Handling Failures
+
+When a quality gate fails:
+1. Do NOT mark the phase complete
+2. Fix the failing tests/types/lint issues
+3. Re-run the quality gates
+4. Only proceed when all enabled gates pass
+
+## Test-First Development Mode
+
+When `execution.test_first: true` is set, implementation phases follow TDD:
+
+### TDD Flow (RED → GREEN → REFACTOR)
+
+```
+1. RED: Write failing tests first
+   - Define expected behavior
+   - Tests should fail initially
+
+2. GREEN: Write minimal code to pass
+   - Implement just enough to pass tests
+   - Don't over-engineer
+
+3. REFACTOR: Clean up
+   - Improve code quality
+   - Ensure tests still pass
+```
+
+### When Test-First Applies
+
+Test-first mode activates for phases with:
+- Complexity: Medium or High
+- Keywords: "implement", "build", "create", "add feature"
+
+Test-first mode skips for:
+- Documentation phases
+- Configuration phases
+- Research/exploration phases
+- Phases explicitly marked `**Test-First**: false`
+
+### Phase Modification
+
+When test-first is enabled, implementation phases are split:
+
+**Original Phase:**
+```markdown
+### Phase 3: User Authentication
+**Deliverables**:
+- [ ] Login endpoint
+- [ ] JWT token generation
+- [ ] Password hashing
+```
+
+**With Test-First:**
+```markdown
+### Phase 3a: User Authentication - Tests
+**Deliverables**:
+- [ ] Test: login with valid credentials
+- [ ] Test: login with invalid credentials
+- [ ] Test: JWT token structure
+- [ ] Test: password hash verification
+
+### Phase 3b: User Authentication - Implementation
+**Deliverables**:
+- [ ] Login endpoint (tests passing)
+- [ ] JWT token generation (tests passing)
+- [ ] Password hashing (tests passing)
+```
+
+### Configuration
+
+```yaml
+execution:
+  test_first: true  # Enable TDD mode
+
+quality_gates:
+  run_tests: true   # Required for test-first to work
+```
+
 ## Configuration
 
 Settings from `project.yaml`:

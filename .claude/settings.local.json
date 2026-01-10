@@ -43,6 +43,16 @@
         "tool": "WebFetch",
         "command": "bash .claude/hooks/findings-reminder.sh",
         "description": "2-Action Rule reminder"
+      },
+      {
+        "tool": "Edit",
+        "command": "bash .claude/hooks/quality-gates.sh",
+        "description": "Quality gates reminder for code changes"
+      },
+      {
+        "tool": "Write",
+        "command": "bash .claude/hooks/quality-gates.sh",
+        "description": "Quality gates reminder for code changes"
       }
     ]
   }
