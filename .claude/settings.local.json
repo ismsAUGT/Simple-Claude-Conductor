@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "command": "bash .claude/hooks/mcp-reminder.sh",
+        "description": "MCP-First reminder for file discovery"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "tool": "Bash",
+        "command": "bash .claude/hooks/branch-protection.sh",
+        "description": "Prevent dangerous git operations"
+      },
+      {
+        "tool": "Write",
+        "command": "bash .claude/hooks/file-guard.sh",
+        "description": "Warn on ad-hoc planning file creation"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "tool": "Grep",
+        "command": "bash .claude/hooks/findings-reminder.sh",
+        "description": "2-Action Rule reminder"
+      },
+      {
+        "tool": "Glob",
+        "command": "bash .claude/hooks/findings-reminder.sh",
+        "description": "2-Action Rule reminder"
+      },
+      {
+        "tool": "Read",
+        "command": "bash .claude/hooks/findings-reminder.sh",
+        "description": "2-Action Rule reminder"
+      },
+      {
+        "tool": "WebSearch",
+        "command": "bash .claude/hooks/findings-reminder.sh",
+        "description": "2-Action Rule reminder"
+      },
+      {
+        "tool": "WebFetch",
+        "command": "bash .claude/hooks/findings-reminder.sh",
+        "description": "2-Action Rule reminder"
+      }
+    ]
+  }
+}

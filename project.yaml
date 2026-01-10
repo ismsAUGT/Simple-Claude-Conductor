@@ -1,0 +1,64 @@
+# Claude Project Executor Configuration
+# Edit this file to customize project execution behavior
+
+version: "1.0"
+
+project:
+  # Project name (used in planning file headers)
+  name: "My Project"
+
+  # Brief description of the project
+  description: "A project using Claude Project Executor"
+
+execution:
+  # Default model for unspecified phases: haiku | sonnet | opus
+  default_model: "sonnet"
+
+  # Skip confirmation prompts during execution
+  # Set to true for autonomous execution
+  bypass_permissions: false
+
+  # Stop for clarifying questions or proceed with assumptions
+  # true = always ask questions before executing
+  # false = proceed with best-guess assumptions (logged in task-plan.md)
+  interrupt_for_questions: true
+
+  # Maximum phases to execute automatically before pausing
+  # Prevents runaway execution
+  max_auto_phases: 5
+
+  # Generate executive summary after all phases complete
+  generate_summary: true
+
+models:
+  # Model mapping for complexity levels
+  # These can be overridden per-phase in task-plan.md
+  low: "haiku"      # Simple tasks: formatting, docs, file moves
+  medium: "sonnet"  # Standard tasks: implementation, testing, refactoring
+  high: "opus"      # Complex tasks: architecture, security, debugging
+
+paths:
+  # Where planning files live (relative to project root)
+  planning_dir: "docs/planning"
+
+  # Where generated reports go
+  reports_dir: "docs/planning/reports"
+
+  # Where completed projects are archived
+  archive_dir: "docs/planning/archive"
+
+hooks:
+  # Enable/disable specific hooks
+  # Set to false to disable a hook
+
+  # Remind about MCP-First when searching
+  mcp_reminder: true
+
+  # Block dangerous git operations
+  branch_protection: true
+
+  # Warn on ad-hoc file creation in planning dir
+  file_guard: true
+
+  # Remind to update findings.md (2-Action Rule)
+  findings_reminder: true
