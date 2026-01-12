@@ -13,29 +13,50 @@
 
 ## Phases
 
-### Phase 1: [Name]
-**Status**: Not Started | In Progress | Complete
-**Complexity**: Low | Medium | High
-**Model**: Haiku | Sonnet | Opus
-**Deliverables**:
-- [ ] Deliverable 1
-- [ ] Deliverable 2
+> Each phase must have success criteria. Do not skip this.
 
-### Phase 2: [Name]
-**Status**: Not Started
-**Complexity**: Low | Medium | High
-**Model**: Haiku | Sonnet | Opus
-**Deliverables**:
-- [ ] Deliverable 1
-- [ ] Deliverable 2
+---
 
-### Phase 3: [Name]
+### Phase 1: [Phase Name]
+
 **Status**: Not Started
-**Complexity**: Low | Medium | High
-**Model**: Haiku | Sonnet | Opus
-**Deliverables**:
-- [ ] Deliverable 1
-- [ ] Deliverable 2
+
+**Description**:
+[2-3 sentences explaining what work will be done in this phase]
+
+**Success Criteria**:
+- [ ] [Specific, verifiable criterion 1]
+- [ ] [Specific, verifiable criterion 2]
+- [ ] [Specific, verifiable criterion 3]
+
+**Outputs**:
+- [Output 1]: [Description of what it contains]
+- [Output 2]: [Description of what it contains]
+
+**Dependencies**: None
+
+---
+
+### Phase 2: [Phase Name]
+
+**Status**: Not Started
+
+**Description**:
+[2-3 sentences explaining what work will be done in this phase]
+
+**Success Criteria**:
+- [ ] [Specific, verifiable criterion 1]
+- [ ] [Specific, verifiable criterion 2]
+- [ ] [Specific, verifiable criterion 3]
+
+**Outputs**:
+- [Output 1]: [Description]
+
+**Dependencies**: Phase 1 must be complete
+
+---
+
+[Continue for additional phases...]
 
 ## Risks
 | Risk | Likelihood | Impact | Mitigation |

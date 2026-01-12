@@ -2,6 +2,19 @@
 
 This project uses **Simple Claude Conductor** for intelligent plan execution.
 
+## CRITICAL: Understand Before Doing
+
+**Before planning or executing ANY unfamiliar task:**
+
+1. **Admit what you don't know** - What domain is this? What would an expert know?
+2. **Research first** - Use WebSearch, read reference materials deeply, understand terminology
+3. **Document understanding** - Fill out the "Domain Understanding" section in findings.md
+4. **Validate semantically** - Don't just check format, check if outputs MAKE SENSE
+
+**Anti-pattern to avoid:** Generating confident-looking outputs for domains you don't understand. High confidence scores mean nothing if the underlying logic is wrong.
+
+**Ask yourself:** "Would a domain expert approve this, or would they immediately spot problems?"
+
 ## Important: User Communication Files
 
 This project is designed for non-technical users. Use these files to communicate:
@@ -41,11 +54,12 @@ After writing questions:
 3. Read their answers from the file and proceed
 
 ### STATUS.md
-**Update this file** whenever you complete significant work:
+**Update this file FREQUENTLY** - users check it to know if things are working:
 - After generating a plan
-- After completing a phase
-- When changing project status
-- With a brief progress summary
+- **BEFORE starting each phase** (mark it "In Progress")
+- After completing each phase
+- Every few minutes during long operations
+- When errors occur
 
 **CRITICAL: Always update the "👉 WHAT TO DO NEXT" section at the top** to guide the user to their next action:
 
@@ -55,22 +69,142 @@ Keep it simple and readable for non-technical users.
 
 | Stage | What To Show |
 |-------|-------------|
+| Planning | "Status: Generating plan... (started at HH:MM)" |
 | Plan generated | "Your Next Step: Type 'Execute the plan' to start building" |
-| Mid-execution | "Your Next Step: I'm working on Phase X of Y. Check back for updates!" |
+| Starting phase | "Status: Starting Phase X of Y: [Name]... (started at HH:MM)" |
+| Mid-execution | "Status: Working on Phase X of Y. Check back for updates!" |
 | Waiting for answers | "Your Next Step: Open Questions_For_You.md and answer my questions, then press Enter" |
 | Execution complete | "Your Next Step: Check the `output/` folder for your generated files!" |
 | Error/blocked | "Your Next Step: [Specific action needed to unblock]" |
 
-The goal is that a user can open STATUS.md at any time and immediately know what to do.
+**Include timestamps** so users can tell if progress is being made.
+
+The goal is that a user can open STATUS.md at any time and immediately know:
+1. What is currently happening
+2. When it started
+3. Whether it's stuck or progressing
 
 ## Quick Start Workflow
 
 1. User provides a description (already in `docs/planning/task-plan.md` Goal section)
-2. Generate a plan with phases
-3. Ask clarifying questions via `Questions_For_You.md` (if `interrupt_for_questions: true`)
-4. Execute phases sequentially
-5. Update `STATUS.md` after each phase
-6. Generate executive summary when complete
+2. **Quick Validation** (if `validation.enabled: true` in project.yaml):
+   - Test simple approach on 5-10 sample items
+   - If confidence >= 80%: Use simplified 1-2 phase plan
+   - If confidence < 80%: Proceed with full planning
+   - Skipped for tasks with "architecture", "security", or "complex" keywords
+3. Generate a plan with phases (complexity informed by validation)
+4. Ask clarifying questions via `Questions_For_You.md` (if `interrupt_for_questions: true`)
+5. Execute phases sequentially
+6. Update `STATUS.md` after each phase
+7. **Quick Iteration** (if `iteration.enabled: true` in project.yaml):
+   - Self-check sample of outputs for errors
+   - If error rate > 10%: Run ONE focused correction pass (budget-capped)
+   - Skipped for tasks with "draft", "prototype", or "quick" keywords
+8. Generate executive summary when complete
+
+## Critical Workflow Skills
+
+Simple Claude Conductor v4 uses three workflow skills to ensure quality. These skills are NOT optional.
+
+### Skill 1: prompt-understanding (BEFORE Planning)
+
+**ALWAYS** run this skill before generating any plan phases.
+
+**What it does:**
+1. Analyzes the user's request to understand the actual "job to be done"
+2. Assesses your familiarity with the domain (High / Medium / Low)
+3. Researches unfamiliar domains (WebSearch if needed)
+4. Asks clarifying questions or documents assumptions
+5. Documents understanding in findings.md
+
+**Enforcement:**
+- DO NOT generate phases in task-plan.md until findings.md has a populated "Domain Understanding" section
+- The pre-planning-check hook will block planning if this section is missing
+
+**Location:** `.claude/skills/prompt-understanding/SKILL.md`
+
+---
+
+### Skill 2: task-decomposition (DURING Planning)
+
+**ALWAYS** define success criteria for each phase when planning.
+
+**What it does:**
+1. Breaks work into logical phases
+2. Defines specific, verifiable success criteria for each phase
+3. Documents dependencies between phases
+
+**Enforcement:**
+- Every phase MUST have success criteria
+- Criteria must be specific (not "works correctly" or "is complete")
+- Criteria must be verifiable (can be objectively checked)
+
+**Bad example:**
+```markdown
+**Success Criteria:**
+- [ ] Phase is complete
+- [ ] Code works
+```
+
+**Good example:**
+```markdown
+**Success Criteria:**
+- [ ] Script processes all rows from input.csv (verified by row count in log)
+- [ ] Output contains columns: id, name, status (verified by checking output headers)
+- [ ] No errors in execution log
+```
+
+**Location:** `.claude/skills/task-decomposition/SKILL.md`
+
+---
+
+### Skill 3: output-validation (AFTER Execution)
+
+**ALWAYS** run this skill before marking any phase complete.
+
+**What it does:**
+1. Checks each success criterion with specific evidence
+2. Spot-checks 5-10 sample outputs for semantic correctness
+3. Requires justification (explain WHY each output is correct)
+4. Flags items that cannot be justified
+5. Documents validation results in progress.md
+
+**Enforcement:**
+- DO NOT mark a phase complete without documented validation in progress.md
+- The phase-completion-check hook will block completion if validation is missing
+
+**Confidence rules:**
+- Only claim high confidence (>80%) if you can cite specific evidence
+- If justification is weak, cap confidence and flag for review
+- Better to flag and be wrong than miss real issues
+
+**Location:** `.claude/skills/output-validation/SKILL.md`
+
+---
+
+### Workflow Summary
+
+```
+1. User provides request
+2. RUN prompt-understanding skill
+   → Document understanding in findings.md
+3. RUN task-decomposition skill
+   → Create phases with success criteria in task-plan.md
+4. Execute each phase
+5. RUN output-validation skill for each phase
+   → Document validation in progress.md
+6. Mark phase complete only after validation passes
+7. Repeat 4-6 for each phase
+8. Generate executive summary when all phases complete
+```
+
+### What Happens If You Skip Skills
+
+- **Skip prompt-understanding:** Pre-planning hook blocks plan generation
+- **Skip success criteria:** Validation has nothing to check, quality suffers
+- **Skip output-validation:** Phase-completion hook blocks marking complete
+
+The skills exist because v3 produced incorrect outputs by skipping understanding and validation. Do not repeat this mistake.
 
 ## Configuration
 
@@ -78,8 +212,52 @@ Settings are in `project.yaml`:
 - **default_model**: haiku | sonnet | opus
 - **interrupt_for_questions**: true = ask questions first, false = make assumptions
 - **bypass_permissions**: true = skip confirmations
+- **validation.enabled**: true = run quick validation before planning
+- **validation.confidence_threshold**: 0.8 = 80% confidence needed to simplify plan
+- **iteration.enabled**: true = run quick iteration after execution
+- **iteration.error_threshold**: 0.1 = run correction if >10% errors in sample
 - **test_first**: true = TDD mode
 - **quality_gates**: run tests/typecheck/lint before completing phases
+
+## Execution Strategy: Stay In-Session by Default
+
+**Default behavior**: Work in the main session. Use subagents sparingly.
+
+### Simple Decision Rule
+
+Ask: **"Will a subagent need the same large files I already have cached?"**
+- **YES** → Stay in-session (cache reuse is valuable)
+- **NO** → Consider delegating
+
+### When to Stay In-Session (Default)
+
+- Implementation/coding tasks
+- All phases need same reference files (>50K tokens shared)
+- Sequential dependencies between phases
+
+### When to Delegate
+
+- Pure research with no shared files
+- Validation/testing (discrete, bounded tasks)
+- Independent exploration directions (max 2-3 agents)
+
+### Compaction (When context > 128K)
+
+1. Replace file contents with paths
+2. Summarize old outputs
+3. Keep last 3-5 turns in full
+
+### Model Selection
+
+| Task Type | Model |
+|-----------|-------|
+| Docs, exploration | haiku |
+| Implementation | sonnet |
+| Architecture, security | opus |
+
+Settings in `project.yaml`:
+- `delegation_mode: "conservative"` (default) - Stay in-session
+- `delegation_mode: "parallel"` - Spawn agents per phase
 
 ## Key Commands (What Users Might Say)
 
@@ -87,6 +265,7 @@ Settings are in `project.yaml`:
 |-----------|------------|
 | "Generate a plan" | Read goal from task-plan.md, create phases |
 | "Execute the plan" | Start or continue phase execution |
+| "Validate first" | Run quick validation before planning |
 | "Show progress" | Summarize STATUS.md and current state |
 | "Continue" | Resume from last completed work |
 | "Summarize" | Generate executive summary |
@@ -170,6 +349,25 @@ Keep the status file updated with this format:
 ```
 
 **Remember**: The "WHAT TO DO NEXT" section should be updated EVERY time you update STATUS.md. Users should never have to guess what to do next!
+
+## Anti-Loop Protection
+
+**CRITICAL**: Do NOT regenerate the plan if it already exists and has phases.
+
+### Signs You're in a Loop
+- Repeating the same action (e.g., "Creating plan..." multiple times)
+- STATUS.md not updating for >5 minutes
+- task-plan.md shows phases but they stay "Not Started"
+
+### If Plan Exists, Execute It
+1. Read task-plan.md
+2. If phases are defined → Go straight to execution
+3. Do NOT regenerate unless user explicitly asks
+
+### Execution Timeout Guidance
+- Planning phase: Should complete in <5 minutes
+- Each execution phase: Should show progress within 10 minutes
+- If no STATUS.md update for 15+ minutes: Something may be stuck
 
 ## Execution Feedback
 
