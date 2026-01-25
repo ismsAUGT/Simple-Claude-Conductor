@@ -1,0 +1,108 @@
+#!/bin/bash
+# Hook: Delegation Enforcer (PreToolUse - Write/Edit)
+# Warns or blocks when main session attempts implementation work instead of delegating
+#
+# This hook helps enforce the Conductor pattern where:
+# - Main session: Orchestration, planning, coordination ONLY
+# - Subagents: All implementation work (code, file creation, edits)
+
+# Get input from environment or stdin
+if [ -n "$CLAUDE_TOOL_INPUT" ]; then
+    INPUT="$CLAUDE_TOOL_INPUT"
+else
+    INPUT=$(cat)
+fi
+
+# Extract file_path from JSON input
+FILE_PATH=$(echo "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"file_path"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+
+# Define allowed files for main session (planning/orchestration files only)
+PLANNING_FILES="task-plan.md|findings.md|progress.md|references.md|execution-summary.md"
+STATUS_FILES="STATUS.md|Questions_For_You.md|IMPROVEMENTS-TO-DO.md|README.md"
+CONFIG_FILES="project.yaml|settings.local.json|CLAUDE.md"
+
+# Check if this is an allowed planning/orchestration file
+is_allowed_file() {
+    local file="$1"
+    local basename=$(basename "$file")
+
+    # Always allow planning files
+    if echo "$basename" | grep -qE "^($PLANNING_FILES)$"; then
+        return 0
+    fi
+
+    # Always allow status/communication files
+    if echo "$basename" | grep -qE "^($STATUS_FILES)$"; then
+        return 0
+    fi
+
+    # Always allow config files
+    if echo "$basename" | grep -qE "^($CONFIG_FILES)$"; then
+        return 0
+    fi
+
+    # Allow files in docs/planning/
+    if echo "$file" | grep -qE "docs/planning/"; then
+        return 0
+    fi
+
+    # Allow files in output/cost_report
+    if echo "$file" | grep -qE "output/cost_report"; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Check if this looks like implementation code
+is_implementation_file() {
+    local file="$1"
+
+    # Check for code file extensions
+    if echo "$file" | grep -qE "\.(py|js|ts|tsx|jsx|java|go|rs|rb|php|cs|cpp|c|h|swift|kt|sh)$"; then
+        return 0
+    fi
+
+    # Check for source directories
+    if echo "$file" | grep -qE "(^src/|/src/|^lib/|/lib/|^app/|/app/)"; then
+        return 0
+    fi
+
+    # Check for test files
+    if echo "$file" | grep -qE "(test_|_test\.|\.test\.|\.spec\.)"; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Main check
+if [ -n "$FILE_PATH" ]; then
+    # If it's an allowed orchestration file, continue without warning
+    if is_allowed_file "$FILE_PATH"; then
+        echo '{"result": "continue"}'
+        exit 0
+    fi
+
+    # If it looks like implementation code, warn strongly
+    if is_implementation_file "$FILE_PATH"; then
+        cat << EOF
+{
+    "result": "continue",
+    "message": "DELEGATION WARNING: You're writing implementation code ($FILE_PATH) in the main session. The Conductor pattern requires delegating this to a Task agent. Ask yourself: 'Should a Task agent do this instead?' If yes, spawn a Task agent with proper context injection. See SKILL.md section 'CRITICAL: Delegation Enforcement' for guidance."
+}
+EOF
+        exit 0
+    fi
+
+    # For other files, just a gentle reminder
+    cat << EOF
+{
+    "result": "continue",
+    "message": "Note: Writing to $FILE_PATH. If this is implementation work, consider delegating to a Task agent for better context management."
+}
+EOF
+    exit 0
+fi
+
+echo '{"result": "continue"}'

@@ -24,6 +24,21 @@ BYPASS_PERMISSIONS="false"
 INTERRUPT_QUESTIONS="true"
 MAX_AUTO_PHASES="5"
 
+# Validation configuration defaults
+VALIDATION_ENABLED="true"
+VALIDATION_MAX_TOKENS="10000"
+VALIDATION_THRESHOLD="0.8"
+VALIDATION_MAX_SAMPLES="10"
+VALIDATION_SKIP_KEYWORDS="architecture security complex"
+
+# Iteration configuration defaults
+ITERATION_ENABLED="true"
+ITERATION_MAX_TOKENS="5000"
+ITERATION_SAMPLE_SIZE="10"
+ITERATION_ERROR_THRESHOLD="0.1"
+ITERATION_MAX_ITERATIONS="1"
+ITERATION_SKIP_KEYWORDS="draft prototype quick"
+
 # Parse YAML config (simplified - real implementation would use yq or python)
 parse_config() {
     if [ -f "$CONFIG_FILE" ]; then
@@ -32,6 +47,151 @@ parse_config() {
         INTERRUPT_QUESTIONS=$(grep -E "^\s+interrupt_for_questions:" "$CONFIG_FILE" | sed 's/.*: *//' || echo "true")
         MAX_AUTO_PHASES=$(grep -E "^\s+max_auto_phases:" "$CONFIG_FILE" | sed 's/.*: *//' || echo "5")
     fi
+}
+
+# Parse validation config from project.yaml
+parse_validation_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # Check if validation section exists
+        if grep -q "^validation:" "$CONFIG_FILE"; then
+            VALIDATION_ENABLED=$(grep -A10 "^validation:" "$CONFIG_FILE" | grep -E "^\s+enabled:" | head -1 | sed 's/.*: *//' || echo "true")
+            VALIDATION_MAX_TOKENS=$(grep -A10 "^validation:" "$CONFIG_FILE" | grep -E "^\s+max_tokens:" | head -1 | sed 's/.*: *//' || echo "10000")
+            VALIDATION_THRESHOLD=$(grep -A10 "^validation:" "$CONFIG_FILE" | grep -E "^\s+confidence_threshold:" | head -1 | sed 's/.*: *//' || echo "0.8")
+            VALIDATION_MAX_SAMPLES=$(grep -A10 "^validation:" "$CONFIG_FILE" | grep -E "^\s+max_sample_items:" | head -1 | sed 's/.*: *//' || echo "10")
+        fi
+    fi
+}
+
+# Check if validation should be skipped based on task keywords
+should_skip_validation() {
+    local task_description="$1"
+
+    # Check for skip keywords
+    for kw in $VALIDATION_SKIP_KEYWORDS; do
+        if echo "$task_description" | grep -qi "$kw"; then
+            echo "true"
+            return
+        fi
+    done
+
+    echo "false"
+}
+
+# Generate validation context for a task
+generate_validation_context() {
+    local task="$1"
+
+    cat << EOF
+## Quick Validation Phase
+You are testing whether a simple approach works for this task.
+
+### Task
+$task
+
+### Instructions
+1. Sample up to $VALIDATION_MAX_SAMPLES items (if task involves multiple items)
+2. Try the most straightforward approach first
+3. Check if results are correct
+4. Report confidence level (0-100%)
+
+### Budget
+- Max tokens: $VALIDATION_MAX_TOKENS
+- Do NOT generate a full plan yet
+
+### Report Format
+VALIDATION_RESULT:
+- approach_tested: [brief description]
+- sample_size: [N]
+- success_rate: [X/N correct]
+- confidence: [0-100]%
+- blockers: [list any issues]
+- recommendation: SIMPLE_PLAN | FULL_PLANNING
+
+### Decision Criteria
+- If confidence >= $(echo "$VALIDATION_THRESHOLD * 100" | bc)%: Recommend SIMPLE_PLAN
+- If confidence < $(echo "$VALIDATION_THRESHOLD * 100" | bc)%: Recommend FULL_PLANNING
+EOF
+}
+
+# Parse iteration config from project.yaml
+parse_iteration_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # Check if iteration section exists
+        if grep -q "^iteration:" "$CONFIG_FILE"; then
+            ITERATION_ENABLED=$(grep -A10 "^iteration:" "$CONFIG_FILE" | grep -E "^\s+enabled:" | head -1 | sed 's/.*: *//' || echo "true")
+            ITERATION_MAX_TOKENS=$(grep -A10 "^iteration:" "$CONFIG_FILE" | grep -E "^\s+max_tokens:" | head -1 | sed 's/.*: *//' || echo "5000")
+            ITERATION_SAMPLE_SIZE=$(grep -A10 "^iteration:" "$CONFIG_FILE" | grep -E "^\s+sample_size:" | head -1 | sed 's/.*: *//' || echo "10")
+            ITERATION_ERROR_THRESHOLD=$(grep -A10 "^iteration:" "$CONFIG_FILE" | grep -E "^\s+error_threshold:" | head -1 | sed 's/.*: *//' || echo "0.1")
+            ITERATION_MAX_ITERATIONS=$(grep -A10 "^iteration:" "$CONFIG_FILE" | grep -E "^\s+max_iterations:" | head -1 | sed 's/.*: *//' || echo "1")
+        fi
+    fi
+}
+
+# Check if iteration should be skipped based on task keywords
+should_skip_iteration() {
+    local task_description="$1"
+
+    # Check for skip keywords
+    for kw in $ITERATION_SKIP_KEYWORDS; do
+        if echo "$task_description" | grep -qi "$kw"; then
+            echo "true"
+            return
+        fi
+    done
+
+    echo "false"
+}
+
+# Generate iteration context for post-execution self-check
+generate_iteration_context() {
+    local task="$1"
+    local outputs="$2"
+
+    local threshold_percent=$(echo "$ITERATION_ERROR_THRESHOLD * 100" | bc 2>/dev/null || echo "10")
+
+    cat << EOF
+## Quick Iteration Phase
+You are self-checking outputs before final delivery.
+
+### Task Summary
+$task
+
+### Outputs to Check
+$outputs
+
+### Instructions
+1. Sample $ITERATION_SAMPLE_SIZE items from outputs
+2. Check each against these criteria:
+   - Correctness: Does it match requirements?
+   - Completeness: Are all parts present?
+   - Consistency: Do patterns match across outputs?
+   - Format: Does it follow expected structure?
+3. Identify any errors found
+4. Report error rate and patterns
+
+### Budget
+- Max tokens: $ITERATION_MAX_TOKENS
+- This is a QUICK check, not a full review
+- Focus on obvious/cheap success criteria
+
+### Report Format
+ITERATION_RESULT:
+- sample_size: [N]
+- errors_found: [count]
+- error_rate: [X]%
+- error_patterns: [list common issues]
+- recommendation: DELIVER | FIX_AND_DELIVER
+
+### Decision Criteria
+- If error_rate <= ${threshold_percent}%: Recommend DELIVER
+- If error_rate > ${threshold_percent}%: Recommend FIX_AND_DELIVER
+
+If FIX_AND_DELIVER:
+- List specific fixes needed (max 3)
+- Apply fixes within token budget
+- Do NOT expand scope
+- This is iteration 1 of $ITERATION_MAX_ITERATIONS (no more after this)
+EOF
 }
 
 # Check if planning files exist
@@ -215,8 +375,174 @@ case "${1:-status}" in
         parse_config
         check_planning_files && find_next_phase
         ;;
+    validation)
+        parse_config
+        parse_validation_config
+        task="${2:-}"
+        if [ -z "$task" ]; then
+            echo "Usage: $0 validation \"task description\""
+            exit 1
+        fi
+        echo "========================================"
+        echo "  Quick Validation Check"
+        echo "========================================"
+        echo ""
+        echo "Task: $task"
+        echo "Validation Enabled: $VALIDATION_ENABLED"
+        echo "Token Budget: $VALIDATION_MAX_TOKENS"
+        echo "Max Samples: $VALIDATION_MAX_SAMPLES"
+        echo "Confidence Threshold: $VALIDATION_THRESHOLD"
+        echo ""
+        if [ "$(should_skip_validation "$task")" = "true" ]; then
+            echo "DECISION: Skip validation (complexity keywords detected)"
+            echo "RECOMMENDATION: FULL_PLANNING"
+        else
+            echo "--- Validation Context ---"
+            generate_validation_context "$task"
+            echo "--- End Context ---"
+        fi
+        ;;
+    iteration)
+        parse_config
+        parse_iteration_config
+        task="${2:-}"
+        outputs="${3:-}"
+        if [ -z "$task" ]; then
+            echo "Usage: $0 iteration \"task description\" \"outputs to check\""
+            exit 1
+        fi
+        echo "========================================"
+        echo "  Quick Iteration Check"
+        echo "========================================"
+        echo ""
+        echo "Task: $task"
+        echo "Iteration Enabled: $ITERATION_ENABLED"
+        echo "Token Budget: $ITERATION_MAX_TOKENS"
+        echo "Sample Size: $ITERATION_SAMPLE_SIZE"
+        echo "Error Threshold: $ITERATION_ERROR_THRESHOLD"
+        echo "Max Iterations: $ITERATION_MAX_ITERATIONS"
+        echo ""
+        if [ "$ITERATION_ENABLED" = "false" ]; then
+            echo "DECISION: Iteration disabled in project.yaml"
+            echo "RECOMMENDATION: DELIVER"
+        elif [ "$(should_skip_iteration "$task")" = "true" ]; then
+            echo "DECISION: Skip iteration (task type keywords detected)"
+            echo "RECOMMENDATION: DELIVER"
+        else
+            echo "--- Iteration Context ---"
+            generate_iteration_context "$task" "$outputs"
+            echo "--- End Context ---"
+        fi
+        ;;
+    run)
+        # Run all phases sequentially using Task agents
+        parse_config
+        parse_validation_config
+        parse_iteration_config
+
+        if ! check_planning_files; then
+            exit 1
+        fi
+
+        echo "========================================"
+        echo "  Project Execution - Running All Phases"
+        echo "========================================"
+        echo ""
+
+        # Get list of phases
+        PHASES=$(extract_phases)
+        TOTAL_PHASES=$(echo "$PHASES" | wc -l)
+        COMPLETED=0
+
+        echo "Total phases: $TOTAL_PHASES"
+        echo ""
+
+        # Execute each phase
+        echo "$PHASES" | while IFS='|' read -r num name; do
+            status=$(get_phase_status "$num")
+
+            if [ "$status" = "Complete" ] || [ "$status" = "Completed" ]; then
+                echo "Phase $num: $name - SKIPPED (already complete)"
+                COMPLETED=$((COMPLETED + 1))
+                continue
+            fi
+
+            # Determine model for this phase
+            explicit_model=$(get_phase_model "$num")
+            if [ "$explicit_model" = "$DEFAULT_MODEL" ]; then
+                # No explicit model, use complexity scoring
+                complexity=$(score_complexity "$name")
+                model=$(complexity_to_model "$complexity")
+            else
+                model="$explicit_model"
+            fi
+
+            echo ""
+            echo "========================================"
+            echo "  Phase $num: $name"
+            echo "  Model: $model"
+            echo "========================================"
+            echo ""
+
+            # Run the phase using run-phase.sh
+            "$SCRIPT_DIR/run-phase.sh" "$num" "$model"
+
+            echo ""
+            echo "Phase $num complete. Continuing to next phase..."
+            echo ""
+        done
+
+        echo ""
+        echo "========================================"
+        echo "  Execution Complete"
+        echo "========================================"
+        echo ""
+        show_status
+        ;;
+
+    phase)
+        # Run a specific phase
+        parse_config
+        if ! check_planning_files; then
+            exit 1
+        fi
+
+        phase_num="${2:-}"
+        model="${3:-}"
+
+        if [ -z "$phase_num" ]; then
+            echo "Usage: $0 phase <phase_number> [model]"
+            exit 1
+        fi
+
+        # If no model specified, determine from complexity
+        if [ -z "$model" ]; then
+            explicit_model=$(get_phase_model "$phase_num")
+            if [ "$explicit_model" = "$DEFAULT_MODEL" ]; then
+                phase_name=$(grep "^### Phase $phase_num:" "$TASK_PLAN" | sed 's/^### Phase [0-9]*: *//')
+                complexity=$(score_complexity "$phase_name")
+                model=$(complexity_to_model "$complexity")
+            else
+                model="$explicit_model"
+            fi
+        fi
+
+        echo "Running Phase $phase_num with model: $model"
+        "$SCRIPT_DIR/run-phase.sh" "$phase_num" "$model"
+        ;;
+
     *)
-        echo "Usage: $0 {status|check|context [phase_num]|next}"
+        echo "Usage: $0 {status|check|context [phase_num]|next|run|phase <num> [model]|validation \"task\"|iteration \"task\" \"outputs\"}"
+        echo ""
+        echo "Commands:"
+        echo "  status              Show current project status"
+        echo "  check               Verify planning files exist"
+        echo "  context [phase]     Generate context injection for a phase"
+        echo "  next                Show next phase to execute"
+        echo "  run                 Execute all phases sequentially (spawns subagents)"
+        echo "  phase <num> [model] Execute a specific phase with optional model override"
+        echo "  validation \"task\"  Generate validation context for a task"
+        echo "  iteration \"task\"   Generate iteration context for post-check"
         exit 1
         ;;
 esac

@@ -15,17 +15,15 @@ That's it! Let's get started.
 
 ## Step 1: How Will You Use Claude?
 
-You need either a Claude subscription OR an API key (not both).
+**Do you have a Claude Pro or Max subscription?** (You pay monthly at claude.ai)
 
-**Option A: I have a Claude Pro or Max subscription** (Recommended - easier!)
-If you pay for Claude at claude.ai, use this option.
+    I_HAVE_SUBSCRIPTION: YES
 
-    USE_SUBSCRIPTION: YES
+If YES: You're all set! Leave it as YES above.
+If NO: Change YES to NO above, then enter your API key below.
 
-**Option B: I have an Anthropic API key**
-If you have a developer API key from console.anthropic.com, enter it below.
+**API Key** (Only needed if you answered NO above)
 
-    USE_SUBSCRIPTION: NO
     API_KEY: _____
 
 ---
@@ -34,11 +32,11 @@ If you have a developer API key from console.anthropic.com, enter it below.
 
 **Project Name:** (Give your project a short name)
 
-    PROJECT_NAME: _____
+    PROJECT_NAME: Simple Claude Conductor Simplification improvements.
 
 **Describe What You Want:** (Be as detailed as possible - the more detail, the better!)
 
-    PROJECT_DESCRIPTION: _____
+    PROJECT_DESCRIPTION: Please see the PRD & Prompt located in C:\NEOGOV\AIPM\File_References_For_Your_Project\Improvements_Prompt.md.
 
 **Example descriptions:**
 - "Build a simple website with a contact form that sends emails"
@@ -57,31 +55,56 @@ These settings control how Claude builds your project. The defaults work great f
 
     ASK_QUESTIONS: NO
 
-**AI Model to Use:**
+**Default AI Model:** (Used when complexity isn't specified)
 - SONNET = Balanced speed and quality (Recommended)
 - HAIKU = Faster and cheaper, good for simple projects
 - OPUS = Most capable, best for complex projects
 
-    MODEL: SONNET
+    MODEL: OPUS
 
 ---
 
-## Step 4: Code Quality Checks (Optional - for developers)
+## Step 4: Model Selection by Task Type (Optional - Advanced)
+
+Claude uses different AI models for different types of tasks to optimize cost and quality.
+**Most users can skip this section - the defaults are well-tuned.**
+
+Available models: HAIKU (cheapest/fastest), SONNET (balanced), OPUS (most capable)
+
+**Planning Model:** (For generating plans and making decisions)
+
+    MODEL_PLANNING: OPUS
+
+**High Complexity Model:** (Architecture, security, complex debugging)
+
+    MODEL_HIGH: OPUS
+
+**Medium Complexity Model:** (Implementation, testing, refactoring)
+
+    MODEL_MEDIUM: SONNET
+
+**Low Complexity Model:** (Docs, formatting, simple file operations)
+
+    MODEL_LOW: SONNET
+
+---
+
+## Step 5: Code Quality Checks (Optional - for developers)
 
 These are for people who know about testing and code quality.
 **Skip this section if you're not sure - leaving them as NO is perfectly fine!**
 
 **Run automated tests?** (Checks if your code works correctly)
 
-    RUN_TESTS: NO
+    RUN_TESTS: YES
 
 **Check for type errors?** (Finds potential bugs in code)
 
-    TYPECHECK: NO
+    TYPECHECK: YES
 
 **Run code style checker?** (Makes code follow best practices)
 
-    LINT: NO
+    LINT: YES
 
 ---
 

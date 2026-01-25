@@ -45,6 +45,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+nul
 
 # Don't ignore these template files (they should be committed):
 # !START_HERE.md

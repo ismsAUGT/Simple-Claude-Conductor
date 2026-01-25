@@ -120,6 +120,22 @@ def generate_report(project_name, session_file, subagent_dir, output_path):
             stats['id'] = f.stem.replace('agent-', '')
             subagent_stats.append(stats)
 
+    # Calculate delegation metrics
+    total_subagent_output = sum(sa['output_tokens'] for sa in subagent_stats)
+    total_all_output = main_stats['output_tokens'] + total_subagent_output
+    delegation_ratio = (total_subagent_output / total_all_output * 100) if total_all_output > 0 else 0
+
+    # Identify "heavy work" subagents (>1000 output tokens = did real implementation)
+    heavy_work_agents = [sa for sa in subagent_stats if sa['output_tokens'] > 1000]
+    exploration_only_agents = [sa for sa in subagent_stats if sa['output_tokens'] <= 200]
+
+    # Delegation health check (v3: warn on OVER-delegation, not under-delegation)
+    # Healthy range: 0-50% delegation. Over 50% may indicate unnecessary agent spawning
+    over_delegated = delegation_ratio > 50
+    too_many_agents = len(subagent_stats) > 5
+    main_session_bloated = main_stats['output_tokens'] > 50000
+    delegation_healthy = not over_delegated and not too_many_agents
+
     # Calculate costs
     pricing = get_pricing(main_stats['model'])
 
@@ -174,6 +190,7 @@ Session ID: {session_id}
 | Session Duration | {start_time} to {end_time} |
 | Model Used | {main_stats['model']} |
 | Subagents Spawned | {len(subagent_stats)} |
+| Delegation Ratio | {delegation_ratio:.1f}% |
 | Cache Efficiency | {cache_efficiency:.1f}% |
 
 ## Token Usage
@@ -199,8 +216,8 @@ Session ID: {session_id}
 
 ## Subagents
 
-| Agent ID | Input | Output | Cache Read | Cost |
-|----------|-------|--------|------------|------|
+| Agent ID | Model | Output | Messages | Cost | Work Type |
+|----------|-------|--------|----------|------|-----------|
 """
 
     for sa in subagent_stats:
@@ -211,10 +228,107 @@ Session ID: {session_id}
             (sa['cache_read'] / 1_000_000) * sa_pricing['cache_read'] +
             (sa['cache_write'] / 1_000_000) * sa_pricing['cache_write']
         )
-        report += f"| {sa['id']} | {sa['input_tokens']:,} | {sa['output_tokens']:,} | {sa['cache_read']:,} | ${sa_cost:.4f} |\n"
+        # Determine work type based on output tokens
+        if sa['output_tokens'] > 1000:
+            work_type = "Heavy Work"
+        elif sa['output_tokens'] > 200:
+            work_type = "Light Work"
+        else:
+            work_type = "Exploration"
+
+        # Extract model short name
+        model_short = 'unknown'
+        if 'opus' in sa['model'].lower():
+            model_short = 'Opus'
+        elif 'sonnet' in sa['model'].lower():
+            model_short = 'Sonnet'
+        elif 'haiku' in sa['model'].lower():
+            model_short = 'Haiku'
+
+        report += f"| {sa['id'][:20]}... | {model_short} | {sa['output_tokens']:,} | {sa['messages']} | ${sa_cost:.4f} | {work_type} |\n"
 
     if not subagent_stats:
-        report += "| (none) | - | - | - | - |\n"
+        report += "| (none) | - | - | - | - | - |\n"
+
+    # Add Delegation Analysis section
+    delegation_status = "HEALTHY" if delegation_healthy else "WARNING"
+
+    # Determine delegation ratio status
+    if delegation_ratio > 50:
+        ratio_status = "Over-delegated"
+    elif delegation_ratio > 0:
+        ratio_status = "OK"
+    else:
+        ratio_status = "Single-session"
+
+    # Determine agent count status
+    if len(subagent_stats) > 5:
+        agent_status = "Too many"
+    elif len(subagent_stats) > 3:
+        agent_status = "High"
+    else:
+        agent_status = "OK"
+
+    # Determine main session status
+    if main_stats['output_tokens'] > 50000:
+        main_status = "Bloated - consider compaction"
+    elif main_stats['output_tokens'] > 20000:
+        main_status = "High"
+    else:
+        main_status = "OK"
+
+    report += f"""
+## Delegation Health
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Delegation Ratio | {delegation_ratio:.1f}% | {ratio_status} (healthy: 0-50%) |
+| Subagents Spawned | {len(subagent_stats)} | {agent_status} (healthy: 0-3) |
+| Main Session Output | {main_stats['output_tokens']:,} tokens | {main_status} |
+| Subagent Output | {total_subagent_output:,} tokens | |
+| Heavy Work Agents | {len(heavy_work_agents)} | |
+| Exploration-Only | {len(exploration_only_agents)} | |
+
+"""
+
+    if over_delegated:
+        report += """### Over-Delegation Warning
+
+Delegation ratio exceeds 50%. This may indicate:
+- Too many subagents spawned (each breaks KV-cache sharing)
+- Subagents re-reading the same large files repeatedly
+- Consider single-session mode for tasks with shared context
+
+**Recommendation**: For implementation tasks with shared reference files (>50K tokens),
+stay in the main session to benefit from cache reuse.
+
+"""
+
+    if too_many_agents:
+        report += f"""### Too Many Subagents Warning
+
+{len(subagent_stats)} subagents spawned (recommended: 0-3).
+Each subagent re-reads files, breaking cache efficiency.
+
+**Recommendation**: Break tasks into larger chunks or use single-session mode.
+
+"""
+
+    if main_session_bloated:
+        report += """### Main Session Bloat Warning
+
+Main session output exceeds 50K tokens. Consider:
+- Using compaction (replace file contents with paths)
+- Summarizing old tool outputs
+- Starting fresh session for next phase
+
+"""
+
+    if heavy_work_agents:
+        report += "### Heavy Work Agents (>1000 output tokens)\n\n"
+        for agent in heavy_work_agents:
+            report += f"- **{agent['id']}**: {agent['output_tokens']:,} output tokens, {agent['messages']} messages\n"
+        report += "\n"
 
     savings = (total_cache_read / 1_000_000) * (pricing['input'] - pricing['cache_read'])
 

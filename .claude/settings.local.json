@@ -28,7 +28,6 @@
       "Bash(rm -rf *)",
       "Bash(del /s *)",
       "Bash(format *)",
-      "Bash(git push*)",
       "Bash(git reset --hard*)"
     ]
   },
@@ -39,94 +38,44 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/mcp-reminder.sh"
+            "command": "bash .claude/hooks/prompt-handler.sh",
+            "description": "MCP-first reminder + plan re-read on major decisions"
           }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/branch-protection.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/file-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-planning-check.sh",
-            "description": "Remind to run prompt-understanding before planning"
+            "command": "bash .claude/hooks/pre-tool-guard.sh",
+            "description": "Branch protection, file guard, domain understanding check"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Grep",
+        "matcher": "Grep|Glob|Read|WebSearch|WebFetch|Task|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/findings-reminder.sh"
+            "command": "bash .claude/hooks/post-tool-handler.sh",
+            "description": "2-Action Rule, quality gates, validation reminders"
           }
         ]
-      },
+      }
+    ],
+    "Stop": [
       {
-        "matcher": "Glob",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/findings-reminder.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/findings-reminder.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/quality-gates.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/quality-gates.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/phase-completion-check.sh",
-            "description": "Remind to run output-validation before completion"
+            "command": "bash .claude/hooks/session-end-check.sh",
+            "description": "Verify completion, STATUS.md updated, cost report reminder"
           }
         ]
       }

@@ -85,22 +85,23 @@ echo.
 echo Press any key to start Claude...
 pause >nul
 
-:: Start Claude
-cls
+:: Start Claude - keep instructions visible (no cls)
 echo.
 echo ========================================
-echo   Claude is loading...
+echo   Starting Claude...
 echo ========================================
 echo.
-echo When Claude finishes loading, type:
+echo REMINDER: When Claude finishes loading, type:
 echo.
 echo   Generate a plan
+echo.
+echo (This instruction will scroll away but check STATUS.md if you forget)
 echo.
 echo ========================================
 echo.
 
-:: Run Claude
-claude
+:: Run Claude with permissions bypass
+claude --dangerously-skip-permissions
 
 echo.
 echo ========================================

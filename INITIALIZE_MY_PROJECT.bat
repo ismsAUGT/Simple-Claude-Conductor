@@ -22,12 +22,16 @@ echo Reading your settings from START_HERE.md...
 echo.
 
 :: Initialize variables with defaults
-set "USE_SUBSCRIPTION=YES"
+set "I_HAVE_SUBSCRIPTION=YES"
 set "API_KEY="
 set "PROJECT_NAME=My Project"
 set "PROJECT_DESCRIPTION="
 set "ASK_QUESTIONS=YES"
 set "MODEL=SONNET"
+set "MODEL_PLANNING=OPUS"
+set "MODEL_HIGH=OPUS"
+set "MODEL_MEDIUM=SONNET"
+set "MODEL_LOW=HAIKU"
 set "RUN_TESTS=NO"
 set "TYPECHECK=NO"
 set "LINT=NO"
@@ -37,39 +41,80 @@ for /f "usebackq tokens=1,* delims=:" %%a in ("START_HERE.md") do (
     set "key=%%a"
     set "value=%%b"
 
-    :: Trim spaces from key
+    :: Trim spaces from key (leading and trailing)
     for /f "tokens=* delims= " %%c in ("!key!") do set "key=%%c"
+    :: Also trim trailing spaces from key
+    if defined key (
+        for /l %%i in (1,1,50) do if "!key:~-1!"==" " set "key=!key:~0,-1!"
+    )
 
     :: Trim leading spaces from value
     if defined value (
         for /f "tokens=* delims= " %%c in ("!value!") do set "value=%%c"
     )
+    :: Also trim trailing spaces from value
+    if defined value (
+        for /l %%i in (1,1,50) do if "!value:~-1!"==" " set "value=!value:~0,-1!"
+    )
 
-    :: Match known keys (case insensitive)
-    if /i "!key!"=="USE_SUBSCRIPTION" if defined value set "USE_SUBSCRIPTION=!value!"
-    if /i "!key!"=="API_KEY" if defined value set "API_KEY=!value!"
-    if /i "!key!"=="PROJECT_NAME" if defined value set "PROJECT_NAME=!value!"
-    if /i "!key!"=="ASK_QUESTIONS" if defined value set "ASK_QUESTIONS=!value!"
-    if /i "!key!"=="MODEL" if defined value set "MODEL=!value!"
-    if /i "!key!"=="RUN_TESTS" if defined value set "RUN_TESTS=!value!"
-    if /i "!key!"=="TYPECHECK" if defined value set "TYPECHECK=!value!"
-    if /i "!key!"=="LINT" if defined value set "LINT=!value!"
+    :: Match known keys (case insensitive) - check for exact match after trimming
+    if /i "!key!"=="I_HAVE_SUBSCRIPTION" (
+        if defined value set "I_HAVE_SUBSCRIPTION=!value!"
+    )
+    if /i "!key!"=="API_KEY" (
+        if defined value set "API_KEY=!value!"
+    )
+    if /i "!key!"=="PROJECT_NAME" (
+        if defined value set "PROJECT_NAME=!value!"
+    )
+    if /i "!key!"=="ASK_QUESTIONS" (
+        if defined value set "ASK_QUESTIONS=!value!"
+    )
+    if /i "!key!"=="MODEL" (
+        if defined value set "MODEL=!value!"
+    )
+    if /i "!key!"=="MODEL_PLANNING" (
+        if defined value set "MODEL_PLANNING=!value!"
+    )
+    if /i "!key!"=="MODEL_HIGH" (
+        if defined value set "MODEL_HIGH=!value!"
+    )
+    if /i "!key!"=="MODEL_MEDIUM" (
+        if defined value set "MODEL_MEDIUM=!value!"
+    )
+    if /i "!key!"=="MODEL_LOW" (
+        if defined value set "MODEL_LOW=!value!"
+    )
+    if /i "!key!"=="RUN_TESTS" (
+        if defined value set "RUN_TESTS=!value!"
+    )
+    if /i "!key!"=="TYPECHECK" (
+        if defined value set "TYPECHECK=!value!"
+    )
+    if /i "!key!"=="LINT" (
+        if defined value set "LINT=!value!"
+    )
 )
 
 :: Display parsed settings
-echo ----------------------------------------
-echo   Your Settings
-echo ----------------------------------------
 echo.
-echo   Project Name: %PROJECT_NAME%
-echo   Use Subscription: %USE_SUBSCRIPTION%
-echo   Ask Questions: %ASK_QUESTIONS%
-echo   Model: %MODEL%
-echo   Run Tests: %RUN_TESTS%
-echo   Type Check: %TYPECHECK%
-echo   Lint: %LINT%
+echo   YOUR SETTINGS:
 echo.
-echo ----------------------------------------
+echo     Project Name:     %PROJECT_NAME%
+echo     Have Subscription: %I_HAVE_SUBSCRIPTION%
+echo     Ask Questions:    %ASK_QUESTIONS%
+echo     Default Model:    %MODEL%
+echo.
+echo   MODEL TIERS:
+echo     Planning:         %MODEL_PLANNING%
+echo     High Complexity:  %MODEL_HIGH%
+echo     Medium Complexity:%MODEL_MEDIUM%
+echo     Low Complexity:   %MODEL_LOW%
+echo.
+echo   QUALITY CHECKS:
+echo     Run Tests:        %RUN_TESTS%
+echo     Type Check:       %TYPECHECK%
+echo     Lint:             %LINT%
 echo.
 
 :: Confirm before proceeding
@@ -90,10 +135,26 @@ echo   Setting Up Your Project
 echo ========================================
 echo.
 
-:: Convert model to lowercase for yaml
+:: Convert models to lowercase for yaml
 set "MODEL_LOWER=sonnet"
 if /i "%MODEL%"=="HAIKU" set "MODEL_LOWER=haiku"
 if /i "%MODEL%"=="OPUS" set "MODEL_LOWER=opus"
+
+set "MODEL_PLANNING_LOWER=opus"
+if /i "%MODEL_PLANNING%"=="HAIKU" set "MODEL_PLANNING_LOWER=haiku"
+if /i "%MODEL_PLANNING%"=="SONNET" set "MODEL_PLANNING_LOWER=sonnet"
+
+set "MODEL_HIGH_LOWER=opus"
+if /i "%MODEL_HIGH%"=="HAIKU" set "MODEL_HIGH_LOWER=haiku"
+if /i "%MODEL_HIGH%"=="SONNET" set "MODEL_HIGH_LOWER=sonnet"
+
+set "MODEL_MEDIUM_LOWER=sonnet"
+if /i "%MODEL_MEDIUM%"=="HAIKU" set "MODEL_MEDIUM_LOWER=haiku"
+if /i "%MODEL_MEDIUM%"=="OPUS" set "MODEL_MEDIUM_LOWER=opus"
+
+set "MODEL_LOW_LOWER=haiku"
+if /i "%MODEL_LOW%"=="SONNET" set "MODEL_LOW_LOWER=sonnet"
+if /i "%MODEL_LOW%"=="OPUS" set "MODEL_LOW_LOWER=opus"
 
 :: Convert yes/no to true/false
 set "ASK_Q_BOOL=true"
@@ -142,10 +203,16 @@ echo [1/5] Updating configuration...
     echo   typecheck: %TYPE_BOOL%
     echo   lint: %LINT_BOOL%
     echo.
+    echo # Model selection by task complexity
+    echo # planning: Used for generating plans, orchestration decisions
+    echo # high: Architecture, security, complex debugging
+    echo # medium: Standard implementation, testing, refactoring
+    echo # low: Docs, formatting, simple file ops, exploration
     echo models:
-    echo   low: "haiku"
-    echo   medium: "sonnet"
-    echo   high: "opus"
+    echo   planning: "%MODEL_PLANNING_LOWER%"
+    echo   high: "%MODEL_HIGH_LOWER%"
+    echo   medium: "%MODEL_MEDIUM_LOWER%"
+    echo   low: "%MODEL_LOW_LOWER%"
     echo.
     echo paths:
     echo   planning_dir: "docs/planning"
@@ -282,7 +349,7 @@ if %errorlevel% equ 0 (
 )
 
 :: Handle authentication for subscription users
-if /i "%USE_SUBSCRIPTION%"=="YES" (
+if /i "%I_HAVE_SUBSCRIPTION%"=="YES" (
     echo.
     echo You chose to use your Claude subscription.
     echo.
