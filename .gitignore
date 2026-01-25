@@ -1,5 +1,9 @@
 # Simple Claude Conductor - .gitignore
 
+# Archive folder (contains old project snapshots)
+archive/
+!archive/.gitkeep
+
 # Output files (generated per-session)
 output/*.md
 output/*.sql

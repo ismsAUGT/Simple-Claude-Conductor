@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Claude Conductor</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-indicator.success { background: var(--success); }
+        .status-indicator.warning { background: var(--warning); }
+        .status-indicator.error { background: var(--error); }
+        .status-indicator.neutral { background: var(--text-muted); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-primary:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        .stage-list {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding: 0 1rem;
+        }
+
+        .stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+        }
+
+        .stage:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: var(--border);
+        }
+
+        .stage.active:not(:last-child)::after {
+            background: var(--primary);
+        }
+
+        .stage-dot {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stage.active .stage-dot {
+            background: var(--primary);
+            color: white;
+        }
+
+        .stage.complete .stage-dot {
+            background: var(--success);
+            color: white;
+        }
+
+        .stage-label {
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .stage.active .stage-label {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .activity-box {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-left: 3px solid var(--primary);
+        }
+
+        .activity-box.waiting {
+            border-left-color: var(--warning);
+        }
+
+        .phase-list {
+            list-style: none;
+        }
+
+        .phase-list li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .phase-list li::before {
+            content: '○';
+            color: var(--text-muted);
+        }
+
+        .phase-list li.complete::before {
+            content: '✓';
+            color: var(--success);
+        }
+
+        .phase-list li.active::before {
+            content: '◉';
+            color: var(--primary);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .file-list {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .file-list-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0;
+            gap: 0.5rem;
+        }
+
+        .file-list-empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .prompt-feedback {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .prompt-feedback.success {
+            border-left-color: var(--success);
+        }
+
+        .prompt-feedback.warning {
+            border-left-color: var(--warning);
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible::after {
+            content: ' ▼';
+            font-size: 0.75rem;
+        }
+
+        .collapsible.collapsed::after {
+            content: ' ▶';
+        }
+
+        .collapse-content {
+            display: block;
+        }
+
+        .collapse-content.hidden {
+            display: none;
+        }
+
+        /* Stall Warning Banner */
+        .stall-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .stall-warning.visible {
+            display: block;
+            animation: pulse 2s infinite;
+        }
+
+        .stall-warning-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stall-warning-text {
+            color: #78350f;
+            font-size: 0.9rem;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Questions Card Styles */
+        .question-item {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .question-topic {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .question-text {
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .question-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .question-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* ============ Polish & Animations ============ */
+
+        /* Smooth transitions for interactive elements */
+        .card {
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        /* Button press effect */
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Status indicator pulse when executing */
+        .status-indicator.warning {
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+        }
+
+        /* Progress bar smooth animation */
+        .progress-fill {
+            transition: width 0.5s ease-out;
+        }
+
+        /* Stage dot transitions */
+        .stage-dot {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .stage.complete .stage-dot {
+            animation: completePop 0.3s ease;
+        }
+
+        @keyframes completePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Input focus effects */
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Success message fade */
+        .success-fade {
+            animation: successFade 2s ease forwards;
+        }
+
+        @keyframes successFade {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Questions card attention animation */
+        #questions-card {
+            animation: cardSlideIn 0.3s ease-out;
+        }
+
+        @keyframes cardSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Footer links */
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        footer a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        /* File list item hover */
+        .file-list-item {
+            transition: background-color 0.2s ease;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin: -0.5rem;
+        }
+
+        .file-list-item:hover {
+            background-color: rgba(99, 102, 241, 0.05);
+        }
+
+        /* Cost Metrics Styles */
+        .cost-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .cost-metric {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .cost-metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .cost-metric-value.success {
+            color: var(--success);
+        }
+
+        .cost-metric-value.warning {
+            color: var(--warning);
+        }
+
+        .cost-metric-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .cost-no-report {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Simple Claude Conductor</h1>
+            <p>Build software projects with AI assistance</p>
+        </header>
+
+        <!-- Stage Progress -->
+        <div class="stage-list">
+            <div class="stage" id="stage-reset">
+                <div class="stage-dot">1</div>
+                <div class="stage-label">Reset</div>
+            </div>
+            <div class="stage" id="stage-configure">
+                <div class="stage-dot">2</div>
+                <div class="stage-label">Configure</div>
+            </div>
+            <div class="stage" id="stage-init">
+                <div class="stage-dot">3</div>
+                <div class="stage-label">Initialize</div>
+            </div>
+            <div class="stage" id="stage-plan">
+                <div class="stage-dot">4</div>
+                <div class="stage-label">Generate</div>
+            </div>
+            <div class="stage" id="stage-execute">
+                <div class="stage-dot">5</div>
+                <div class="stage-label">Execute</div>
+            </div>
+        </div>
+
+        <!-- Stall Warning Banner -->
+        <div class="stall-warning" id="stall-warning">
+            <div class="stall-warning-title">
+                <span>&#9888;</span> Possible Stall Detected
+            </div>
+            <div class="stall-warning-text">
+                Claude hasn't made progress in over 60 seconds. This might mean:
+                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                    <li>Claude is waiting for permission - <strong>check the terminal window</strong></li>
+                    <li>A long operation is running (be patient)</li>
+                    <li>An error occurred - check the terminal for details</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Status Card -->
+        <div class="card">
+            <h2>
+                <span class="status-indicator" id="status-dot"></span>
+                <span id="status-title">Checking status...</span>
+            </h2>
+
+            <div class="activity-box" id="activity-box">
+                <div id="activity-text">Loading...</div>
+            </div>
+
+            <div class="progress-bar" id="progress-container">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+
+            <div id="phase-info">
+                <div class="info-row">
+                    <span class="info-label">Current Phase</span>
+                    <span id="current-phase">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Progress</span>
+                    <span id="phase-progress">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Updated</span>
+                    <span id="last-updated">-</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="action-btn" onclick="performAction()">
+                    <span id="action-text">Loading...</span>
+                </button>
+                <button class="btn btn-secondary" id="secondary-btn" onclick="openOutput()">
+                    Open Output Folder
+                </button>
+            </div>
+        </div>
+
+        <!-- Configuration Form Card -->
+        <div class="card" id="config-card">
+            <h2 class="collapsible" onclick="toggleCollapse('config-content')">Configure Your Project</h2>
+            <div id="config-content" class="collapse-content">
+                <form id="config-form" onsubmit="saveConfig(event)">
+                    <div class="form-group">
+                        <label for="project-name">Project Name</label>
+                        <input type="text" id="project-name" placeholder="My Awesome Project" required>
+                        <small>A short name for your project</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="project-description">What do you want to build?</label>
+                        <textarea id="project-description" placeholder="Describe what you want Claude to build. Be specific about features, requirements, and any constraints." required></textarea>
+                        <small>The more detail you provide, the better the results</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Reference Files</label>
+                        <div class="file-list" id="reference-files">
+                            <span class="file-list-empty">No reference files</span>
+                        </div>
+                        <div class="actions" style="margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-secondary" onclick="openReferences()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                Open Folder
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="refreshReferences()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                Refresh List
+                            </button>
+                        </div>
+                        <small>Add files to File_References_For_Your_Project/ folder</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="collapsible collapsed" onclick="toggleCollapse('options-content')">Options</label>
+                        <div id="options-content" class="collapse-content hidden">
+                            <div class="options-grid" style="margin-top: 0.5rem;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="default-model" style="font-weight: normal; font-size: 0.9rem;">Default AI Model</label>
+                                    <select id="default-model">
+                                        <option value="sonnet">Sonnet (Recommended)</option>
+                                        <option value="opus">Opus (Most Capable)</option>
+                                        <option value="haiku">Haiku (Fastest)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="ask-questions" style="font-weight: normal; font-size: 0.9rem;">Ask Clarifying Questions?</label>
+                                    <select id="ask-questions">
+                                        <option value="true">Yes (Recommended)</option>
+                                        <option value="false">No - Make Assumptions</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="prompt-feedback" class="prompt-feedback" style="display: none;"></div>
+
+                    <div class="actions">
+                        <button type="button" class="btn btn-secondary" onclick="reviewPrompt()" id="review-btn">
+                            Review Prompt Quality
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="save-config-btn">
+                            Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Questions Card -->
+        <div class="card" id="questions-card" style="display: none; border-left: 4px solid var(--warning);">
+            <h2 style="color: var(--warning);">
+                <span>&#10067;</span> Claude Has Questions
+            </h2>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                Claude needs some clarification before continuing. Please answer the questions below.
+            </p>
+
+            <div id="questions-list">
+                <!-- Questions will be rendered here -->
+            </div>
+
+            <div class="actions" style="margin-top: 1.5rem;">
+                <button class="btn btn-primary" onclick="submitAnswers()" id="submit-answers-btn">
+                    Submit Answers
+                </button>
+                <button class="btn btn-secondary" onclick="skipQuestions()">
+                    Skip - Let Claude Decide
+                </button>
+            </div>
+        </div>
+
+        <!-- Claude Status Card -->
+        <div class="card">
+            <h2>Claude Status</h2>
+            <div class="info-row">
+                <span class="info-label">Installed</span>
+                <span id="claude-installed">Checking...</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Logged In</span>
+                <span id="claude-login">Checking...</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Process</span>
+                <span id="claude-process">-</span>
+            </div>
+        </div>
+
+        <!-- Cost Report Card -->
+        <div class="card" id="cost-card" style="display: none;">
+            <h2 class="collapsible" onclick="toggleCollapse('cost-content')">Session Metrics</h2>
+            <div id="cost-content" class="collapse-content">
+                <div id="cost-metrics">
+                    <!-- Metrics will be loaded here -->
+                </div>
+                <div class="actions" style="margin-top: 1rem;">
+                    <button class="btn btn-secondary" onclick="generateCostReport()" id="generate-cost-btn">
+                        Regenerate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Management Card -->
+        <div class="card" id="project-management-card">
+            <h2>Project Management</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                Start a new project or manage archives of previous work.
+            </p>
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="resetProject()" id="reset-btn">
+                    Start Fresh Project
+                </button>
+                <button class="btn btn-secondary" onclick="openArchiveFolder()">
+                    View Archives
+                </button>
+            </div>
+            <div id="reset-message" style="margin-top: 1rem; padding: 0.75rem; border-radius: 8px; display: none;"></div>
+        </div>
+
+        <footer>
+            Simple Claude Conductor v1.0 |
+            <a href="#" onclick="refreshStatus()">Refresh Status</a>
+        </footer>
+    </div>
+
+    <script>
+        let currentState = 'unknown';
+        let pollInterval = null;
+        let lastActivityTime = Date.now();
+        let lastStatusHash = '';
+        const STALL_THRESHOLD_MS = 60000; // 60 seconds
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkClaude();
+            refreshStatus();
+            checkQuestions();
+            loadCostReport();
+            startPolling();
+            loadConfig();
+            refreshReferences();
+        });
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+                refreshStatus();
+                // Check questions less frequently (every 6 seconds)
+                if (Date.now() % 6000 < 3000) {
+                    checkQuestions();
+                }
+            }, 3000);
+        }
+
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                updateUI(status);
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+
+        async function checkClaude() {
+            try {
+                const response = await fetch('/api/claude/check');
+                const data = await response.json();
+
+                document.getElementById('claude-installed').textContent =
+                    data.installed ? 'Yes' : 'No';
+                document.getElementById('claude-login').textContent =
+                    data.loggedIn ? data.email : 'Not logged in';
+            } catch (error) {
+                document.getElementById('claude-installed').textContent = 'Error checking';
+            }
+        }
+
+        function updateUI(status) {
+            currentState = status.state;
+
+            // Stall detection
+            const statusHash = `${status.state}|${status.phase}|${status.activity}`;
+            if (statusHash !== lastStatusHash) {
+                lastStatusHash = statusHash;
+                lastActivityTime = Date.now();
+            }
+
+            // Show/hide stall warning
+            const stallWarning = document.getElementById('stall-warning');
+            const timeSinceActivity = Date.now() - lastActivityTime;
+            const isStalled = (status.state === 'executing' || status.claudeRunning) &&
+                              timeSinceActivity > STALL_THRESHOLD_MS;
+
+            if (isStalled) {
+                stallWarning.classList.add('visible');
+            } else {
+                stallWarning.classList.remove('visible');
+            }
+
+            // Update status indicator
+            const dot = document.getElementById('status-dot');
+            const title = document.getElementById('status-title');
+
+            switch (status.state) {
+                case 'complete':
+                    dot.className = 'status-indicator success';
+                    title.textContent = 'Project Complete!';
+                    break;
+                case 'executing':
+                    dot.className = 'status-indicator warning';
+                    title.textContent = 'Executing...';
+                    break;
+                case 'planned':
+                    dot.className = 'status-indicator success';
+                    title.textContent = 'Plan Ready';
+                    break;
+                case 'questions':
+                    dot.className = 'status-indicator warning';
+                    title.textContent = 'Questions Pending';
+                    break;
+                default:
+                    dot.className = 'status-indicator neutral';
+                    title.textContent = 'Ready to Start';
+            }
+
+            // Update activity box
+            const activityBox = document.getElementById('activity-box');
+            const activityText = document.getElementById('activity-text');
+            activityText.textContent = status.activity || 'No activity yet';
+
+            if (status.state === 'questions') {
+                activityBox.classList.add('waiting');
+            } else {
+                activityBox.classList.remove('waiting');
+            }
+
+            // Update progress
+            if (status.total > 0) {
+                const percent = (status.phase / status.total) * 100;
+                document.getElementById('progress-fill').style.width = percent + '%';
+                document.getElementById('current-phase').textContent =
+                    `Phase ${status.phase} of ${status.total}`;
+                document.getElementById('phase-progress').textContent =
+                    `${Math.round(percent)}%`;
+            } else {
+                document.getElementById('progress-fill').style.width = '0%';
+                document.getElementById('current-phase').textContent = '-';
+                document.getElementById('phase-progress').textContent = '-';
+            }
+
+            // Update last updated
+            document.getElementById('last-updated').textContent =
+                status.lastUpdated || 'Never';
+
+            // Update Claude process status
+            document.getElementById('claude-process').textContent =
+                status.claudeRunning ? 'Running' : 'Idle';
+
+            // Update action button
+            updateActionButton(status);
+
+            // Update stage indicators
+            updateStages(status);
+        }
+
+        function updateActionButton(status) {
+            const btn = document.getElementById('action-btn');
+            const text = document.getElementById('action-text');
+
+            switch (status.state) {
+                case 'complete':
+                    text.textContent = 'Start New Project';
+                    btn.disabled = false;
+                    break;
+                case 'executing':
+                    text.textContent = 'Executing...';
+                    btn.disabled = true;
+                    break;
+                case 'planned':
+                    text.textContent = 'Execute Plan';
+                    btn.disabled = false;
+                    break;
+                case 'questions':
+                    text.textContent = 'Continue (After Answering)';
+                    btn.disabled = false;
+                    break;
+                default:
+                    text.textContent = 'Generate Plan';
+                    btn.disabled = false;
+            }
+        }
+
+        function updateStages(status) {
+            // Reset all stages
+            document.querySelectorAll('.stage').forEach(s => {
+                s.classList.remove('active', 'complete');
+            });
+
+            // Mark stages based on state
+            if (status.planGenerated) {
+                document.getElementById('stage-reset').classList.add('complete');
+                document.getElementById('stage-configure').classList.add('complete');
+                document.getElementById('stage-init').classList.add('complete');
+
+                if (status.state === 'complete') {
+                    document.getElementById('stage-plan').classList.add('complete');
+                    document.getElementById('stage-execute').classList.add('complete');
+                } else if (status.state === 'executing' || status.state === 'questions') {
+                    document.getElementById('stage-plan').classList.add('complete');
+                    document.getElementById('stage-execute').classList.add('active');
+                } else {
+                    document.getElementById('stage-plan').classList.add('active');
+                }
+            } else {
+                document.getElementById('stage-configure').classList.add('active');
+            }
+        }
+
+        function resetStallTimer() {
+            lastActivityTime = Date.now();
+            lastStatusHash = '';
+            document.getElementById('stall-warning').classList.remove('visible');
+        }
+
+        async function performAction() {
+            const btn = document.getElementById('action-btn');
+            const text = document.getElementById('action-text');
+            const originalText = text.textContent;
+
+            btn.disabled = true;
+            text.innerHTML = '<span class="loading"></span> Starting...';
+
+            // Reset stall timer when user takes action
+            resetStallTimer();
+
+            try {
+                let endpoint;
+                switch (currentState) {
+                    case 'planned':
+                        endpoint = '/api/claude/execute-plan';
+                        break;
+                    case 'questions':
+                        endpoint = '/api/claude/continue';
+                        break;
+                    case 'complete':
+                        // Reset and start new project
+                        resetProject();
+                        btn.disabled = false;
+                        text.textContent = originalText;
+                        return;
+                    default:
+                        endpoint = '/api/claude/generate-plan';
+                }
+
+                const response = await fetch(endpoint, { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    setTimeout(refreshStatus, 1000);
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+
+            btn.disabled = false;
+            text.textContent = originalText;
+        }
+
+        async function openOutput() {
+            try {
+                await fetch('/api/output/open');
+            } catch (error) {
+                alert('Error opening folder: ' + error.message);
+            }
+        }
+
+        async function resetProject() {
+            const confirmed = confirm(
+                'Start a fresh project?\n\n' +
+                'This will:\n' +
+                '• Archive your current project files\n' +
+                '• Clear STATUS.md and planning files\n' +
+                '• Reset for a new project\n\n' +
+                'Your old files will be saved in the archive/ folder.'
+            );
+
+            if (!confirmed) return;
+
+            const btn = document.getElementById('reset-btn');
+            const msgBox = document.getElementById('reset-message');
+            const originalText = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = 'Resetting...';
+            msgBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectName: 'Previous_Project' })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    msgBox.style.display = 'block';
+                    msgBox.style.background = '#dcfce7';
+                    msgBox.style.color = '#166534';
+                    msgBox.innerHTML = result.archived
+                        ? '✓ Project archived and reset! Old files saved to: <code>' + result.archivePath + '</code>'
+                        : '✓ Project reset! Ready for a new project.';
+
+                    // Refresh status after reset
+                    setTimeout(refreshStatus, 500);
+                } else {
+                    msgBox.style.display = 'block';
+                    msgBox.style.background = '#fee2e2';
+                    msgBox.style.color = '#991b1b';
+                    msgBox.textContent = 'Error: ' + (result.error || 'Unknown error');
+                }
+            } catch (error) {
+                msgBox.style.display = 'block';
+                msgBox.style.background = '#fee2e2';
+                msgBox.style.color = '#991b1b';
+                msgBox.textContent = 'Error: ' + error.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+
+        async function openArchiveFolder() {
+            try {
+                // Try to open the archive folder
+                const response = await fetch('/api/archive/open');
+                if (!response.ok) {
+                    alert('Archive folder: archive/\n\nOpen this folder in your file explorer to view old projects.');
+                }
+            } catch (error) {
+                alert('Archive folder: archive/\n\nOpen this folder in your file explorer to view old projects.');
+            }
+        }
+
+        // ============ Configuration Functions ============
+
+        function toggleCollapse(contentId) {
+            const content = document.getElementById(contentId);
+            const label = content.previousElementSibling;
+
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                if (label) label.classList.remove('collapsed');
+            } else {
+                content.classList.add('hidden');
+                if (label) label.classList.add('collapsed');
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                if (config.projectName) {
+                    document.getElementById('project-name').value = config.projectName;
+                }
+                if (config.projectDescription) {
+                    document.getElementById('project-description').value = config.projectDescription;
+                }
+                if (config.defaultModel) {
+                    document.getElementById('default-model').value = config.defaultModel;
+                }
+                if (config.askQuestions !== undefined) {
+                    document.getElementById('ask-questions').value = config.askQuestions.toString();
+                }
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+
+        async function saveConfig(event) {
+            event.preventDefault();
+
+            const btn = document.getElementById('save-config-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            const config = {
+                projectName: document.getElementById('project-name').value,
+                projectDescription: document.getElementById('project-description').value,
+                defaultModel: document.getElementById('default-model').value,
+                askQuestions: document.getElementById('ask-questions').value === 'true'
+            };
+
+            // Basic validation
+            if (!config.projectName.trim()) {
+                alert('Please enter a project name');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+
+            if (!config.projectDescription.trim()) {
+                alert('Please describe what you want to build');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+
+            if (config.projectDescription.trim().length < 20) {
+                alert('Please provide more detail in your project description (at least 20 characters)');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    btn.textContent = '✓ Saved!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    }, 1500);
+
+                    // Collapse the config section after saving
+                    setTimeout(() => {
+                        const content = document.getElementById('config-content');
+                        const header = content.previousElementSibling;
+                        content.classList.add('hidden');
+                        header.classList.add('collapsed');
+                    }, 500);
+                } else {
+                    alert('Error saving configuration');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        async function refreshReferences() {
+            try {
+                const response = await fetch('/api/references');
+                const files = await response.json();
+                const container = document.getElementById('reference-files');
+
+                if (files.length === 0) {
+                    container.innerHTML = '<span class="file-list-empty">No reference files. Add files to File_References_For_Your_Project/ folder.</span>';
+                } else {
+                    container.innerHTML = files.map(f =>
+                        `<div class="file-list-item">
+                            <span>${f.isDir ? '📁' : '📄'}</span>
+                            <span>${f.name}</span>
+                            <span style="color: var(--text-muted); font-size: 0.85rem;">
+                                ${f.isDir ? '' : formatSize(f.size)}
+                            </span>
+                        </div>`
+                    ).join('');
+                }
+            } catch (error) {
+                console.error('Error loading references:', error);
+            }
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        async function openReferences() {
+            try {
+                await fetch('/api/references/open');
+            } catch (error) {
+                alert('Error opening folder: ' + error.message);
+            }
+        }
+
+        async function reviewPrompt() {
+            const description = document.getElementById('project-description').value;
+
+            if (!description.trim()) {
+                alert('Please enter a project description first');
+                return;
+            }
+
+            const btn = document.getElementById('review-btn');
+            const feedback = document.getElementById('prompt-feedback');
+            const originalText = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            feedback.style.display = 'block';
+            feedback.innerHTML = 'Analyzing your prompt...';
+            feedback.className = 'prompt-feedback';
+
+            try {
+                const response = await fetch('/api/prompt/review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    feedback.innerHTML = result.feedback;
+                    feedback.className = 'prompt-feedback ' + (result.quality === 'good' ? 'success' : 'warning');
+                } else {
+                    feedback.innerHTML = '<strong>Could not analyze prompt.</strong><br>Tip: Make sure to include specific details about what you want to build, any technical requirements, and expected outcomes.';
+                    feedback.className = 'prompt-feedback warning';
+                }
+            } catch (error) {
+                feedback.innerHTML = '<strong>Prompt Review Tips:</strong><br>• Be specific about what you want to build<br>• Mention any technical requirements<br>• Describe the expected output format<br>• Include constraints or limitations';
+                feedback.className = 'prompt-feedback warning';
+            }
+
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+
+        // ============ Cost Report Functions ============
+
+        async function loadCostReport() {
+            try {
+                const response = await fetch('/api/cost');
+                const data = await response.json();
+                const card = document.getElementById('cost-card');
+                const container = document.getElementById('cost-metrics');
+
+                if (data.available && data.metrics) {
+                    card.style.display = 'block';
+                    const m = data.metrics;
+
+                    // Determine CSS classes based on values
+                    const costClass = m.totalCost > 1 ? 'warning' : (m.totalCost > 0.5 ? '' : 'success');
+                    const cacheClass = m.cacheEfficiency > 50 ? 'success' : (m.cacheEfficiency > 20 ? '' : 'warning');
+
+                    container.innerHTML = `
+                        <div class="cost-grid">
+                            <div class="cost-metric">
+                                <div class="cost-metric-value ${costClass}">$${m.totalCost?.toFixed(2) || '0.00'}</div>
+                                <div class="cost-metric-label">Est. API Cost</div>
+                            </div>
+                            <div class="cost-metric">
+                                <div class="cost-metric-value ${cacheClass}">${m.cacheEfficiency?.toFixed(0) || '0'}%</div>
+                                <div class="cost-metric-label">Cache Efficiency</div>
+                            </div>
+                            <div class="cost-metric">
+                                <div class="cost-metric-value">${m.subagentCount || 0}</div>
+                                <div class="cost-metric-label">Subagents Used</div>
+                            </div>
+                            <div class="cost-metric">
+                                <div class="cost-metric-value">${m.delegationRatio?.toFixed(0) || 0}%</div>
+                                <div class="cost-metric-label">Delegation Ratio</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">
+                            Model: ${m.model || 'Unknown'}<br>
+                            <small>Note: Subscription users pay flat monthly fee regardless of token usage.</small>
+                        </div>
+                    `;
+                } else {
+                    // Don't show the card if no report available
+                    card.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading cost report:', error);
+            }
+        }
+
+        async function generateCostReport() {
+            const btn = document.getElementById('generate-cost-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('/api/cost/generate', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    btn.textContent = '✓ Generated!';
+                    setTimeout(() => {
+                        loadCostReport();
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    }, 1000);
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to generate report'));
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // ============ Questions Functions ============
+
+        async function checkQuestions() {
+            try {
+                const response = await fetch('/api/questions');
+                const data = await response.json();
+                const card = document.getElementById('questions-card');
+
+                if (data.hasQuestions && data.questions.length > 0) {
+                    card.style.display = 'block';
+                    renderQuestions(data.questions);
+                } else {
+                    card.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking questions:', error);
+            }
+        }
+
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-list');
+            container.innerHTML = questions.map(q => `
+                <div class="question-item">
+                    <div class="question-topic">Question ${q.number}: ${q.topic}</div>
+                    <div class="question-text">${q.question}</div>
+                    <textarea
+                        class="question-input"
+                        id="answer-${q.number}"
+                        placeholder="Type your answer here..."
+                    >${q.answer || ''}</textarea>
+                </div>
+            `).join('');
+        }
+
+        async function submitAnswers() {
+            const btn = document.getElementById('submit-answers-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            // Gather answers from all question inputs
+            const answers = {};
+            document.querySelectorAll('.question-input').forEach(input => {
+                const num = input.id.replace('answer-', '');
+                answers[num] = input.value.trim() || '(No answer provided)';
+            });
+
+            try {
+                const response = await fetch('/api/questions/answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answers })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    btn.textContent = '✓ Saved!';
+                    setTimeout(() => {
+                        document.getElementById('questions-card').style.display = 'none';
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                        // Trigger status refresh
+                        refreshStatus();
+                    }, 1000);
+                } else {
+                    alert('Error saving answers: ' + (result.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        async function skipQuestions() {
+            const confirmed = confirm(
+                'Skip answering questions?\n\n' +
+                'Claude will make assumptions and continue without your input. ' +
+                'This may result in a different outcome than you expected.'
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch('/api/questions/skip', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('questions-card').style.display = 'none';
+                    // Trigger status refresh
+                    refreshStatus();
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

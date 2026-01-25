@@ -440,6 +440,24 @@ The project includes safety limits (in project.yaml):
 
 If hitting limits, pause and ask user for guidance.
 
+## Archive Folder
+
+The `archive/` folder contains old project files from previous runs.
+
+**IMPORTANT - Do NOT access archive files:**
+- Do NOT read files from `archive/` - they are historical only
+- Do NOT include `archive/` in Grep/Glob searches
+- Do NOT reference archived files in your responses
+- This saves context and avoids confusion with old project files
+
+When searching the codebase, always exclude archive:
+- Grep: Use path that doesn't include archive, or mentally skip archive results
+- Glob: Don't use patterns that match `archive/**`
+
+The archive folder exists so users can review their old projects, but Claude should treat it as if it doesn't exist.
+
+---
+
 ## Cost Report Generation
 
 **At the end of each session**, generate a cost report by running:
