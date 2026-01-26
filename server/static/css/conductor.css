@@ -362,6 +362,15 @@ footer a:hover {
 }
 
 .btn--danger {
+    color: var(--color-error);
+    border-color: var(--color-error);
+}
+
+.btn--danger:hover:not(:disabled) {
+    background: rgba(239, 83, 80, 0.1);
+}
+
+.btn--danger {
     background: var(--color-error);
     color: white;
 }

@@ -31,7 +31,20 @@ This project is designed for non-technical users. Use these files to communicate
 If files are present, read them and incorporate them into your understanding of the project goals. These files provide valuable context beyond what's in START_HERE.md.
 
 ### Questions_For_You.md
-**When you have questions for the user**, write them to this file instead of just asking in the terminal.
+**When you have questions for the user**, write them to this file.
+
+**Two types of questions:**
+
+1. **Planning Questions** (DURING plan generation):
+   - Asked automatically if `allowPlanningQuestions: true`
+   - UI will detect them and pause for user input
+   - Format: `**Your Answer:** _____` (3+ underscores)
+   - See "Planning Questions Workflow" section for details
+
+2. **Execution Questions** (DURING execution):
+   - Asked when you encounter ambiguity mid-execution
+   - Write questions and tell the user to answer them
+   - After they answer, read the file and proceed
 
 Format questions like this:
 ```markdown
@@ -48,9 +61,9 @@ Format questions like this:
 **Your Answer:** _____
 ```
 
-After writing questions:
-1. Tell the user: "I've written some questions to Questions_For_You.md - please open that file and answer them."
-2. Tell them to press Enter when done, or press Enter without answering to let you make assumptions
+For execution questions, tell the user:
+1. "I've written some questions to Questions_For_You.md - please open that file and answer them."
+2. "Press Enter when done, or press Enter without answering to let me make assumptions"
 3. Read their answers from the file and proceed
 
 ### STATUS.md
@@ -101,6 +114,86 @@ The goal is that a user can open STATUS.md at any time and immediately know:
    - If error rate > 10%: Run ONE focused correction pass (budget-capped)
    - Skipped for tasks with "draft", "prototype", or "quick" keywords
 8. Generate executive summary when complete
+
+## Planning Questions Workflow
+
+**NEW FEATURE:** The conductor supports asking clarifying questions during plan generation.
+
+### When Planning Questions Are Used
+
+After you generate a plan, if **both** conditions are met:
+1. `allowPlanningQuestions: true` in `config/project-config.json` (default: true)
+2. You wrote questions to `Questions_For_You.md` with unanswered format
+
+Then the UI will:
+- Transition to `plan_questions` state
+- Display a card with "Claude Has Questions About Your Project"
+- Let the user answer, skip, or defer questions
+
+### How to Write Planning Questions
+
+**Format Requirements:**
+- Write questions to `Questions_For_You.md` during plan generation
+- Use the exact format: `**Your Answer:** _____` (with at least 3 underscores) for blank answers
+- This format signals to the system that questions are unanswered
+
+**Example:**
+```markdown
+## Questions
+
+### Question 1: Database Choice
+Which database do you want to use for this project?
+
+**Your Answer:** _____
+
+### Question 2: Authentication Method
+Do you want to use OAuth, JWT, or session-based authentication?
+
+**Your Answer:** _____
+```
+
+### When to Ask Planning Questions
+
+**DO ask questions when:**
+- Requirements are genuinely ambiguous (e.g., "add authentication" - what type?)
+- Multiple valid approaches exist and user preference matters (e.g., database choice, UI framework)
+- Scope is unclear (e.g., "improve performance" - which parts?)
+- Technology stack decisions need user input (e.g., REST vs GraphQL)
+
+**DON'T ask questions when:**
+- The answer is clear from context or reference files
+- You can make a reasonable assumption based on existing codebase patterns
+- The question is about implementation details rather than requirements
+- You're asking just to be cautious (trust your expertise!)
+
+**Quality Guidelines:**
+- Limit to 3-5 most important questions
+- Make each question clear and specific
+- Offer context or trade-offs where helpful
+- Focus on decisions that significantly impact the plan
+
+### What Happens After Questions
+
+**If user answers:**
+- You receive a prompt: "Review answers in Questions_For_You.md and refine the plan"
+- Update `task-plan.md` based on their input
+- Adjust phases, success criteria, or approach as needed
+- The system will detect the refined plan and transition to `planned` state
+
+**If user skips:**
+- You receive a prompt: "Finalize plan using your best judgment"
+- Proceed with reasonable defaults
+- Document your assumptions in `findings.md`
+- The system will transition to `planned` state
+
+### State Flow
+
+```
+planning → (questions detected) → plan_questions → (user answers/skips) → planning → planned
+planning → (no questions) → planned
+```
+
+**Important:** The questions feature is opt-in. If `allowPlanningQuestions: false`, the system will skip the `plan_questions` state even if you write questions.
 
 ## Critical Workflow Skills
 

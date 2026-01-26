@@ -1,5 +1,0 @@
-{
-  "projectName": "Simple Claude Conductor Documentation",
-  "projectDescription": "Create comprehensive technical documentation for the Simple Claude Conductor Web UI system. Read the reference file DOCUMENTATION_PROJECT_PROMPT.md for the complete specification. Create all documentation files in docs/SimpleClaudeConductorDocumentation/ folder.\n",
-  "defaultModel": "opus"
-}

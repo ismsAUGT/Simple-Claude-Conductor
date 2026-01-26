@@ -220,6 +220,60 @@ def detect_plan_completion():
     return False
 
 
+def load_config():
+    """
+    Load project configuration from project-config.json.
+
+    Returns dictionary with configuration values, with defaults if file doesn't exist.
+    """
+    config_path = os.path.join(PROJECT_ROOT, 'config', 'project-config.json')
+
+    default_config = {
+        'projectName': '',
+        'projectDescription': '',
+        'defaultModel': 'sonnet',
+        'allowPlanningQuestions': True
+    }
+
+    if not os.path.exists(config_path):
+        return default_config
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        # Merge with defaults to ensure all fields exist
+        return {**default_config, **config}
+    except Exception:
+        return default_config
+
+
+def detect_planning_questions():
+    """
+    Detect if Questions_For_You.md contains unanswered questions.
+
+    Returns True if the file exists and has questions with blank answers.
+    Questions are identified by the format: **Your Answer:** _____
+    """
+    questions_path = os.path.join(PROJECT_ROOT, 'Questions_For_You.md')
+
+    if not os.path.exists(questions_path):
+        return False
+
+    try:
+        with open(questions_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Look for unanswered questions (format: **Your Answer:** _____)
+        # Pattern matches "Your Answer:" followed by optional whitespace and underscores
+        unanswered_pattern = r'\*\*Your Answer:\*\*\s*_{3,}'
+
+        matches = re.findall(unanswered_pattern, content)
+        return len(matches) > 0
+    except Exception:
+        return False
+
+
 # ============ Action API ============
 
 @app.route('/api/actions/generate-plan', methods=['POST'])
@@ -248,12 +302,24 @@ def action_generate_plan():
                 phase_count, phase_names = detect_plan_phases()
 
                 if phase_count > 0:
-                    # Plan was generated successfully
-                    state_manager.set_state('planned',
-                                           phase=1,
-                                           total_phases=phase_count,
-                                           phase_name=phase_names[0] if phase_names else None,
-                                           activity=f'Plan generated with {phase_count} phase(s). Ready to execute!')
+                    # Plan was generated successfully - check if questions feature is enabled
+                    config = load_config()
+                    allow_questions = config.get('allowPlanningQuestions', True)
+
+                    if allow_questions and detect_planning_questions():
+                        # Questions found - transition to plan_questions state
+                        state_manager.transition('questions_found',
+                                                phase=1,
+                                                total_phases=phase_count,
+                                                phase_name=phase_names[0] if phase_names else None,
+                                                activity='Claude has questions about your project. Answer them to refine the plan, or skip to continue.')
+                    else:
+                        # No questions or feature disabled - proceed to planned state
+                        state_manager.set_state('planned',
+                                               phase=1,
+                                               total_phases=phase_count,
+                                               phase_name=phase_names[0] if phase_names else None,
+                                               activity=f'Plan generated with {phase_count} phase(s). Ready to execute!')
                 else:
                     state_manager.set_state('configured',
                                            activity='Plan generation completed but no phases found in task-plan.md')
@@ -268,6 +334,67 @@ def action_generate_plan():
         return jsonify({
             'success': True,
             'message': 'Plan generation started',
+            'pid': pid
+        })
+    except Exception as e:
+        state_manager.set_error(str(e))
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/actions/refine-plan', methods=['POST'])
+def action_refine_plan():
+    """Refine the plan after user answers or skips questions"""
+    try:
+        if process_manager.is_running():
+            return jsonify({
+                'success': False,
+                'error': 'Claude is already running'
+            }), 400
+
+        # Get skipped parameter from request
+        data = request.get_json() or {}
+        skipped = data.get('skipped', False)
+
+        # Determine prompt based on whether user answered or skipped
+        if skipped:
+            prompt = 'Review the plan in task-plan.md and finalize it using your best judgment. The user chose to skip answering the planning questions.'
+        else:
+            prompt = 'Review the answers in Questions_For_You.md and refine the plan in task-plan.md accordingly. Update phase details, success criteria, or approach based on the user\'s input.'
+
+        # Transition back to planning state for refinement
+        state_manager.transition('refine_plan',
+                                activity='Refining plan based on your input... A terminal window will appear - you can ignore it.')
+        timeout_monitor.start()
+
+        # Start Claude process
+        pid = process_manager.start_claude(prompt, PROJECT_ROOT)
+        state_manager.set_process(pid)
+
+        # Set up exit callback
+        def on_exit(return_code):
+            if return_code == 0:
+                # After refinement, check for phases and transition to planned
+                phase_count, phase_names = detect_plan_phases()
+
+                if phase_count > 0:
+                    state_manager.set_state('planned',
+                                           phase=1,
+                                           total_phases=phase_count,
+                                           phase_name=phase_names[0] if phase_names else None,
+                                           activity=f'Plan refined with {phase_count} phase(s). Ready to execute!')
+                else:
+                    state_manager.set_error('Plan refinement completed but no phases found in task-plan.md')
+            else:
+                state_manager.set_error(f'Claude exited with code {return_code}')
+
+            state_manager.set_process(None)
+            timeout_monitor.stop()
+
+        process_manager.on_exit(on_exit)
+
+        return jsonify({
+            'success': True,
+            'message': 'Plan refinement started',
             'pid': pid
         })
     except Exception as e:
@@ -779,6 +906,27 @@ def open_plan():
             subprocess.run(['open', plan_path])
         else:
             subprocess.run(['xdg-open', plan_path])
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/questions/open')
+def open_questions():
+    """Open Questions_For_You.md in default editor/viewer"""
+    questions_path = os.path.join(PROJECT_ROOT, 'Questions_For_You.md')
+
+    if not os.path.exists(questions_path):
+        return jsonify({'success': False, 'error': 'Questions file not found'})
+
+    try:
+        if sys.platform == 'win32':
+            os.startfile(questions_path)
+        elif sys.platform == 'darwin':
+            subprocess.run(['open', questions_path])
+        else:
+            subprocess.run(['xdg-open', questions_path])
 
         return jsonify({'success': True})
     except Exception as e:

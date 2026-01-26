@@ -95,6 +95,12 @@
                 <button @click="openOutput()" class="btn btn--secondary">
                     Open Output
                 </button>
+
+                <button x-show="canReset"
+                        @click="resetProject()"
+                        class="btn btn--secondary btn--danger">
+                    Start Over
+                </button>
             </div>
         </section>
 
@@ -135,6 +141,15 @@
                             <option value="sonnet">Sonnet (Balanced)</option>
                             <option value="opus">Opus (Most Capable)</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   x-model="config.allowPlanningQuestions">
+                            <span>Allow Claude to ask clarifying questions when generating the plan</span>
+                        </label>
+                        <small>When enabled, Claude can ask questions before finalizing the plan to better understand your requirements</small>
                     </div>
 
                     <div class="actions">
@@ -242,6 +257,35 @@
                 </button>
                 <button @click="skipQuestions()" class="btn btn--secondary" :disabled="loading">
                     Skip - Let Claude Decide
+                </button>
+            </div>
+        </section>
+
+        <!-- Planning Questions card -->
+        <section class="card card--questions" x-show="showPlanQuestions">
+            <header class="card__header">
+                <h2>Claude Has Questions About Your Project</h2>
+            </header>
+
+            <p class="card__subtitle">
+                Claude has written some clarifying questions to better understand your project requirements.
+                You can answer them to refine the plan, or skip to let Claude proceed with their best judgment.
+            </p>
+
+            <div class="activity-box">
+                <p x-text="state.activity"></p>
+            </div>
+
+            <div class="actions">
+                <button @click="openQuestionsFile()" class="btn btn--primary">
+                    Open Questions File
+                </button>
+                <button @click="continueAfterQuestions(false)" class="btn btn--primary" :disabled="loading">
+                    <span x-show="loading" class="spinner"></span>
+                    Continue (I've Answered)
+                </button>
+                <button @click="continueAfterQuestions(true)" class="btn btn--secondary" :disabled="loading">
+                    Skip Questions
                 </button>
             </div>
         </section>

@@ -123,6 +123,10 @@ class APIClient {
     submitAnswers(answers) { return this.post('/questions/answer', { answers }); }
     skipQuestions() { return this.post('/questions/skip', {}); }
 
+    // Planning Questions API (new)
+    refinePlan(skipped) { return this.post('/actions/refine-plan', { skipped }); }
+    openQuestionsFile() { return this.get('/questions/open'); }
+
     // Action API (new endpoints)
     generatePlan() { return this.post('/actions/generate-plan', {}); }
     executePlan() { return this.post('/actions/execute', {}); }
@@ -133,7 +137,7 @@ class APIClient {
 
     // System API
     checkSystem() { return this.get('/claude/check'); }
-    openOutput() { return this.post('/output/open', {}); }
+    openOutput() { return this.get('/output/open'); }
     openPlan() { return this.get('/plan/open'); }
     openReferences() { return this.get('/references/open'); }
 

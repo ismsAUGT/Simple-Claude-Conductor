@@ -26,7 +26,8 @@ function conductorApp() {
         config: {
             projectName: '',
             projectDescription: '',
-            defaultModel: 'sonnet'
+            defaultModel: 'sonnet',
+            allowPlanningQuestions: true
         },
         configExpanded: true,
 
@@ -120,7 +121,8 @@ function conductorApp() {
                     this.config = {
                         projectName: config.projectName || config.project?.name || '',
                         projectDescription: config.projectDescription || config.project?.description || '',
-                        defaultModel: config.defaultModel || config.execution?.default_model || 'sonnet'
+                        defaultModel: config.defaultModel || config.execution?.default_model || 'sonnet',
+                        allowPlanningQuestions: config.allowPlanningQuestions !== undefined ? config.allowPlanningQuestions : true
                     };
                     this.configExpanded = false; // Collapse if already configured
                 }
@@ -235,6 +237,34 @@ function conductorApp() {
                 this.questions = [];
             } catch (e) {
                 alert('Failed to skip questions: ' + e.message);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Open questions file in default editor
+         */
+        async openQuestionsFile() {
+            try {
+                await api.openQuestionsFile();
+            } catch (e) {
+                alert('Failed to open questions file: ' + e.message);
+            }
+        },
+
+        /**
+         * Continue after answering planning questions
+         */
+        async continueAfterQuestions(skipped) {
+            if (skipped && !confirm('Skip answering questions? Claude will use their best judgment.')) {
+                return;
+            }
+            this.loading = true;
+            try {
+                await api.refinePlan(skipped);
+            } catch (e) {
+                alert('Failed to refine plan: ' + e.message);
             } finally {
                 this.loading = false;
             }
@@ -458,6 +488,7 @@ function conductorApp() {
                 'reset': 'Ready to Start',
                 'configured': 'Ready to Generate Plan',
                 'planning': 'Generating Plan...',
+                'plan_questions': 'Questions About Your Project',
                 'planned': 'Plan Ready',
                 'executing': 'Executing...',
                 'questions': 'Questions Pending',
@@ -501,8 +532,20 @@ function conductorApp() {
             return ['planning', 'executing'].includes(this.state.state);
         },
 
+        get canReset() {
+            // Can reset from any state except during active operations or already reset
+            if (this.loading) return false;
+            if (['planning', 'executing'].includes(this.state.state)) return false;
+            if (this.state.state === 'reset') return false;
+            return true;
+        },
+
         get showConfig() {
             return ['reset', 'configured', 'planned', 'complete'].includes(this.state.state);
+        },
+
+        get showPlanQuestions() {
+            return this.state.state === 'plan_questions';
         },
 
         get showHeartbeat() {

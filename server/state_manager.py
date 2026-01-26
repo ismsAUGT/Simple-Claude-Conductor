@@ -30,6 +30,13 @@ TRANSITIONS = {
     },
     'planning': {
         'plan_complete': 'planned',
+        'questions_found': 'plan_questions',
+        'cancel': 'configured',
+        'error': 'error'
+    },
+    'plan_questions': {
+        'refine_plan': 'planning',
+        'plan_complete': 'planned',
         'cancel': 'configured',
         'error': 'error'
     },
@@ -59,7 +66,7 @@ TRANSITIONS = {
 }
 
 # Valid states
-VALID_STATES = {'reset', 'configured', 'planning', 'planned', 'executing', 'questions', 'complete', 'error'}
+VALID_STATES = {'reset', 'configured', 'planning', 'plan_questions', 'planned', 'executing', 'questions', 'complete', 'error'}
 
 
 class StateManager:
