@@ -180,8 +180,8 @@ def detect_plan_phases():
         with open(task_plan_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Look for phase headers like "### Phase 1:" or "### Phase 1 -"
-        phase_pattern = r'###\s+Phase\s+(\d+)[:\s-]+(.+?)(?=\n|$)'
+        # Look for phase headers like "## Phase 1:" or "### Phase 1 -" (2 or 3 hashes)
+        phase_pattern = r'##[#]?\s+Phase\s+(\d+)[:\s-]+(.+?)(?=\n|$)'
         matches = re.findall(phase_pattern, content)
 
         if matches:

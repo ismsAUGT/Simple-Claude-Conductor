@@ -177,6 +177,8 @@ function conductorApp() {
                 switch (this.state.state) {
                     case 'reset':
                     case 'configured':
+                        // Auto-save config before generating plan
+                        await api.saveConfig(this.config);
                         await api.generatePlan();
                         break;
                     case 'planned':
