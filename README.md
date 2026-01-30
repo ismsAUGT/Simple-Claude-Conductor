@@ -161,3 +161,6 @@ MIT License - Use freely for personal or commercial projects.
 
 - **Issues**: Report bugs or request features via the project repository
 - **Claude Code Help**: https://github.com/anthropics/claude-code
+
+
+<img width="434" height="420" alt="image" src="https://github.com/user-attachments/assets/d1ff1111-3124-486d-a69c-b2ae8dcc0512" />
