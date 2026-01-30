@@ -163,4 +163,17 @@ MIT License - Use freely for personal or commercial projects.
 - **Claude Code Help**: https://github.com/anthropics/claude-code
 
 
+## SCC Asks for your initial Prompt
+
+## SCC Asks for seed files to reference and learn from
+
+## SCC Generates a Plan
+
 <img width="434" height="420" alt="image" src="https://github.com/user-attachments/assets/d1ff1111-3124-486d-a69c-b2ae8dcc0512" />
+
+## SCC Asks clarifying questions (if needed)
+
+
+<img width="406" height="357" alt="image" src="https://github.com/user-attachments/assets/9ec7b245-e53a-400c-b6c7-9206819dd2e3" />
+
+## SCC Executes the plan, spinning up parallel agents to manage context windows
