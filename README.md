@@ -165,7 +165,11 @@ MIT License - Use freely for personal or commercial projects.
 
 ## SCC Asks for your initial Prompt
 
+<img width="297" height="442" alt="image" src="https://github.com/user-attachments/assets/5a25c7e7-31fc-42d6-af25-159005fede2a" />
+
 ## SCC Asks for seed files to reference and learn from
+
+<img width="424" height="257" alt="image" src="https://github.com/user-attachments/assets/a4337a23-3f14-46a6-a3b3-7eec0f78aeaf" />
 
 ## SCC Generates a Plan
 
@@ -173,7 +177,9 @@ MIT License - Use freely for personal or commercial projects.
 
 ## SCC Asks clarifying questions (if needed)
 
-
 <img width="406" height="357" alt="image" src="https://github.com/user-attachments/assets/9ec7b245-e53a-400c-b6c7-9206819dd2e3" />
 
 ## SCC Executes the plan, spinning up parallel agents to manage context windows
+
+<img width="477" height="286" alt="image" src="https://github.com/user-attachments/assets/ee5d0906-7bf8-43d9-ba67-8a33b62659f4" />
+
